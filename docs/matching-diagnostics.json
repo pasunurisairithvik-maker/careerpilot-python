@@ -1,0 +1,71 @@
+{
+  "dataset": "10 authored synthetic diagnostic cases; not representative or held out",
+  "true_positive": 5,
+  "false_positive": 1,
+  "false_negative": 1,
+  "true_negative": 3,
+  "precision": 0.8333333333333334,
+  "recall": 0.8333333333333334,
+  "cases": [
+    {
+      "job": "Python developer",
+      "resume": "Built a Python API",
+      "expected_mention": true,
+      "predicted_mention": true
+    },
+    {
+      "job": "Java developer",
+      "resume": "Built a JavaScript app",
+      "expected_mention": false,
+      "predicted_mention": false
+    },
+    {
+      "job": "PostgreSQL developer",
+      "resume": "Postgres database project",
+      "expected_mention": true,
+      "predicted_mention": true
+    },
+    {
+      "job": "Git developer",
+      "resume": "A legitimate project",
+      "expected_mention": false,
+      "predicted_mention": false
+    },
+    {
+      "job": "C++ developer",
+      "resume": "C++ queue implementation",
+      "expected_mention": true,
+      "predicted_mention": true
+    },
+    {
+      "job": "Java developer",
+      "resume": "No Java experience",
+      "expected_mention": false,
+      "predicted_mention": true
+    },
+    {
+      "job": "Unit testing",
+      "resume": "Tested with pytest",
+      "expected_mention": true,
+      "predicted_mention": true
+    },
+    {
+      "job": "Operating systems",
+      "resume": "Studied OS concepts",
+      "expected_mention": true,
+      "predicted_mention": false
+    },
+    {
+      "job": "AWS developer",
+      "resume": "Amazon Web Services deployment",
+      "expected_mention": true,
+      "predicted_mention": true
+    },
+    {
+      "job": "Python developer",
+      "resume": "Built a website",
+      "expected_mention": false,
+      "predicted_mention": false
+    }
+  ]
+}

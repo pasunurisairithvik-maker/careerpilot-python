@@ -1,0 +1,43 @@
+name: Release checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        database: [sqlite, postgres]
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: synthetic-ci-password
+          POSTGRES_DB: careerpilot_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt pip-audit
+      - name: Test isolated fixtures
+        env:
+          DEBUG: '1'
+          LOCAL_POSTGRES: '1'
+          DATABASE_URL: ${{ matrix.database == 'postgres' && 'postgresql://testuser:synthetic-ci-password@127.0.0.1:5432/careerpilot_test' || '' }}
+        run: |
+          python manage.py collectstatic --noinput
+          python manage.py makemigrations --check --dry-run
+          python manage.py test
+      - name: Production security settings
+        env:
+          SECRET_KEY: 'synthetic-ci-only-key-with-more-than-fifty-characters-abc123XYZ!'
+          DATABASE_URL: postgresql://testuser:synthetic-ci-password@localhost/careerpilot_test
+          ALLOWED_HOSTS: example.org
+        run: python manage.py check --deploy --fail-level WARNING
+      - run: pip-audit -r requirements.txt

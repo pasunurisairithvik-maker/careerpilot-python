@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: careerpilot-python
+    runtime: python
+    plan: free
+    region: ohio
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    startCommand: python ops/start.py
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.12
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
