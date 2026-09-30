@@ -2,7 +2,7 @@ from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 from itertools import product
 from .discovery import evidence, classify
-from .job_traits import workplace
+from .job_traits import workplace, salary
 from .models import Job
 from .job_views import filtered
 
@@ -16,6 +16,12 @@ class EvidenceRegressions(SimpleTestCase):
   for text in ['Four days a week in the office. We have a fully remote program.', 'We require three coordinated days in the office per week. Four weeks of fully remote work is a perk.']:
    self.assertEqual(workplace('San Francisco',text)[0],'hybrid')
   self.assertEqual(workplace('San Francisco','Our fully remote program is a benefit.')[0],'unspecified')
+ def test_explicit_onsite_and_multiline_pay(self):
+  for text in ['This role requires you to be onsite at our HQ.', 'Must work onsite five days per week.']:
+   self.assertEqual(workplace('San Mateo',text)[0],'onsite')
+  for text in ['Estimated Annual Pay Range\n$125,000—$160,000 USD', 'Base salary\n$80,000 - $90,000']:
+   self.assertTrue(salary(text))
+  self.assertEqual(salary('Our product costs $100.'),'')
  def test_nonsoftware_engineering_not_developer(self):
   for title in ['Associate Process Engineer','Industrial Engineering Intern']:
    self.assertNotEqual(classify(title),'developer')

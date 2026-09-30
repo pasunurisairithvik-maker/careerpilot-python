@@ -19,10 +19,11 @@ def workplace(location,description,metadata=''):
  patterns={
   'hybrid':r'\bhybrid (?:role|position|work|working|model|schedule|arrangement|office)\b|\b\d+ days? (?:per week |a week )?(?:in (?:the )?office|on[- ]?site)',
   'remote':r'\b(?:fully remote (?:role|position|job|work)|remote (?:role|position|job|work|within|from|in|across)|work (?:fully )?remotely|work from home)\b',
-  'onsite':r'\b(?:on[- ]?site (?:role|position|work|job)|office[- ]based|in[- ]person (?:role|position|work)|work (?:from|in) (?:our|the) office)\b',
+  'onsite':r'\b(?:on[- ]?site (?:role|position|work|job)|(?:work|be) on[- ]?site|office[- ]based|in[- ]person (?:role|position|work)|work (?:from|in) (?:our|the) office)\b',
  }
  # Office attendance requirements take precedence over general remote benefits.
  for line in text.splitlines():
+  if re.search(r'\b(?:five|5) days?.{0,35}(?:a |per )week',line,re.I) and re.search(r'\b(?:office|onsite|on-site|in-person)\b',line,re.I):return 'onsite',line.strip()[:500]
   if re.search(r'\b(?:one|two|three|four|five|[1-5]) (?:coordinated )?days?.{0,35}(?:a |per )week',line,re.I) and re.search(r'\b(?:office|in-person)\b',line,re.I):return 'hybrid',line.strip()[:500]
  for kind,pattern in patterns.items():
   for line in text.splitlines():
@@ -36,6 +37,8 @@ def salary(description,structured=''):
  if structured:return structured
  # Require an explicit monetary amount and a pay-related context in the same sentence.
  money=r'(?:\$|USD\s*|CAD\s*|GBP\s*|EUR\s*|£|€|INR\s*|₹)\s*\d[\d,]*(?:\.\d{1,2})?(?:\s*[kK])?'
- for line in re.split(r'\n|(?<=[.!?])\s+',description or ''):
-  if re.search(money,line) and re.search(r'\b(?:salary|base pay|pay range|compensation|per hour|hourly|per year|annually|annual)\b',line,re.I):return line.strip()[:1000]
+ lines=re.split(r'\n|(?<=[.!?])\s+',description or '')
+ for i,line in enumerate(lines):
+  context=' '.join(lines[max(0,i-2):i+1])
+  if re.search(money,line) and re.search(r'\b(?:salary|base pay|pay range|compensation|per hour|hourly|per year|annually|annual)\b',context,re.I):return context.strip()[:1000]
  return ''
