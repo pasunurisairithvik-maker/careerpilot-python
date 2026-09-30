@@ -90,10 +90,17 @@ def normalize(provider,slug,company,row):
 def refresh(force=False):
     from .models import Job,FeedState
     now=timezone.now()
+    selected=SOURCES
     with transaction.atomic():
         FeedState.objects.get_or_create(key='refresh')
         lock=FeedState.objects.select_for_update().get(key='refresh')
-        if lock.attempted and now-lock.attempted<timedelta(minutes=30) and not force:return {'busy':True}
+        if lock.attempted and now-lock.attempted<timedelta(minutes=30) and not force:
+            existing=set(FeedState.objects.values_list('key',flat=True))
+            selected=[source for source in SOURCES if f'{source[0]}:{source[1]}' not in existing]
+            if not selected:return {'busy':True}
+        # Reserve new boards under the global lock so concurrent refreshes cannot repeat them.
+        for provider,slug,_ in selected:
+            FeedState.objects.get_or_create(key=f'{provider}:{slug}',defaults={'attempted':now})
         lock.attempted=now;lock.save(update_fields=['attempted'])
     def fetch(source):
         provider,slug,company=source
@@ -101,7 +108,7 @@ def refresh(force=False):
         except Exception as e:return source,None,type(e).__name__
     counts={}
     with ThreadPoolExecutor(max_workers=3) as pool:
-        for source,rows,error in pool.map(fetch,SOURCES):
+        for source,rows,error in pool.map(fetch,selected):
             provider,slug,company=source;key=f'{provider}:{slug}'
             state,_=FeedState.objects.get_or_create(key=key)
             state.attempted=now

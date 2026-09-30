@@ -128,3 +128,12 @@ class DiscoveryTests(TestCase):
         self.client.post('/searches/save/',{'name':'Filtered','q':'Python','exclude':'Java','title_only':'on','sort':'title'})
         self.assertEqual(SavedSearch.objects.get(name='Filtered').filters['exclude'],'Java')
         self.assertEqual(SavedSearch.objects.get(name='Filtered').filters['sort'],'title')
+
+    def test_new_board_initializes_during_existing_cooldown(self):
+        FeedState.objects.create(key='refresh',attempted=timezone.now())
+        FeedState.objects.create(key='greenhouse:synthetic',attempted=timezone.now(),success=timezone.now(),count=1)
+        with patch('tracker.discovery.SOURCES',[('greenhouse','synthetic','Example'),('greenhouse','newboard','New employer')]),patch('tracker.discovery.download',return_value=[]) as fetch:
+            self.assertEqual(refresh(),{'New employer':0})
+            fetch.assert_called_once_with('greenhouse','newboard')
+            self.assertTrue(refresh().get('busy'))
+        self.job.refresh_from_db();self.assertTrue(self.job.active)
