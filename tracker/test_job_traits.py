@@ -12,6 +12,7 @@ class DescriptionTraitsTests(SimpleTestCase):
   self.assertEqual(workplace('US','This is a fully remote role within the United States.')[0],'remote')
   self.assertEqual(workplace('Boston','This is an onsite position.')[0],'onsite')
   self.assertEqual(workplace('Boston','Remote work is not available.')[0],'unspecified')
+  self.assertEqual(workplace('Boston','We develop hybrid cloud products.')[0],'unspecified')
  def test_salary_requires_pay_context(self):
   self.assertIn('$80,000',salary('Annual base salary: $80,000 to $100,000 USD.'))
   self.assertEqual(salary('Equipment budget of $1000.'),'')

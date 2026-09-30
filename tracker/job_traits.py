@@ -17,7 +17,7 @@ def level(title,description):
 def workplace(location,description,metadata=''):
  text='\n'.join([location or '',description or ''])
  patterns={
-  'hybrid':r'\bhybrid\b|\b\d+ days? (?:per week |a week )?(?:in (?:the )?office|on[- ]?site)',
+  'hybrid':r'\bhybrid (?:role|position|work|working|model|schedule|arrangement|office)\b|\b\d+ days? (?:per week |a week )?(?:in (?:the )?office|on[- ]?site)',
   'remote':r'\b(?:fully remote|remote (?:role|position|job|work|within|from|in|across)|work (?:fully )?remotely|work from home)\b',
   'onsite':r'\b(?:on[- ]?site (?:role|position|work|job)|office[- ]based|in[- ]person (?:role|position|work)|work (?:from|in) (?:our|the) office)\b',
  }

@@ -13,7 +13,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 from .job_traits import level as jd_level,workplace as jd_workplace,salary as jd_salary
 from .models import Job,FeedState,SavedSearch,Application,ResumeDraft
-from .discovery import ROLES,AUTH,SOURCES,refresh
+from .discovery import ROLES,AUTH,SOURCES,refresh,evidence as jd_evidence
 from .matching import analyse
 from .resume_tools import checks,build_text,docx
 from .forms import ResumeBuilderForm
@@ -52,17 +52,17 @@ def filtered(data):
         field='evidence__'+data['authorization']+'__state'
         states=['stated','mentioned','mixed']+(['unknown'] if data.get('include_unknown') else [])
         qs=qs.filter(**{field+'__in':states})
-    if data.get('sponsorship'):qs=qs.filter(evidence__sponsorship__state=data['sponsorship'])
     if data.get('days'):qs=qs.filter(first_seen__gte=timezone.now()-timedelta(days=int(data['days'])))
     if data.get('fresh'):qs=qs.filter(checked__gte=timezone.now()-timedelta(hours=24))
     # Same canonical application URL represents the same listing; don't merge distinct requisitions merely by title.
     seen=set();ids=[]
-    check_traits=bool(data.get('level') or data.get('workplace') or data.get('salary'))
+    check_traits=bool(data.get('level') or data.get('workplace') or data.get('salary') or data.get('sponsorship'))
     columns=['pk','url']+(['title','description','location','workplace','salary'] if check_traits else [])
     for row in qs.order_by('-active','-first_seen','pk').values_list(*columns).iterator(chunk_size=100):
         pk,url=row[:2]
         if check_traits:
             title,description,location,workplace,pay=row[2:]
+            if data.get('sponsorship') and jd_evidence(description)['sponsorship']['state']!=data['sponsorship']:continue
             level=jd_level(title,description)
             if data.get('level') and level!=data['level'] and not (data.get('include_unstated') and level=='unspecified'):continue
             arrangement,_=jd_workplace(location,description,workplace)
@@ -81,6 +81,7 @@ def jobs(request):
     pager=Paginator(qs,20);page=pager.get_page(request.GET.get('page'))
     for listing in page:
         listing.experience=experience_requirement(listing.description)
+        listing.evidence=jd_evidence(listing.description)
         listing.level=jd_level(listing.title,listing.description)
         listing.workplace,listing.workplace_quote=jd_workplace(listing.location,listing.description,listing.workplace)
         listing.salary=jd_salary(listing.description,listing.salary)
@@ -121,6 +122,7 @@ def jobs(request):
 def job(request,pk):
     item=get_object_or_404(Job,pk=pk)
     match=analyse(item.description,request.user.profile.resume) if request.user.is_authenticated else None
+    item.evidence=jd_evidence(item.description)
     item.level=jd_level(item.title,item.description)
     item.workplace,item.workplace_quote=jd_workplace(item.location,item.description,item.workplace)
     item.salary=jd_salary(item.description,item.salary)
