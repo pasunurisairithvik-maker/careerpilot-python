@@ -6,7 +6,7 @@ from django.conf import settings
 from django.db import close_old_connections
 from django.utils import timezone
 from .models import FeedState
-from .discovery import refresh
+from .discovery import refresh,SOURCES
 _guard = threading.Lock()
 _log = logging.getLogger(__name__)
 
@@ -26,7 +26,8 @@ def maybe_refresh():
         return False
     state = FeedState.objects.filter(key='refresh').first()
     if state and state.attempted and timezone.now()-state.attempted < timedelta(minutes=170):
-        return False
+        known=set(FeedState.objects.values_list('key',flat=True))
+        if all(f'{provider}:{board}' in known for provider,board,_ in SOURCES):return False
     if not _guard.acquire(blocking=False):
         return False
     try:
@@ -35,3 +36,4 @@ def maybe_refresh():
         _guard.release()
         raise
     return True
+

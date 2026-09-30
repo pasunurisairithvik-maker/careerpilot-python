@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
-SOURCES=[('greenhouse','stripe','Stripe'),('greenhouse','cloudflare','Cloudflare'),('greenhouse','datadog','Datadog'),('lever','palantir','Palantir'),('lever','spotify','Spotify'),('greenhouse','mongodb','MongoDB'),('greenhouse','figma','Figma'),('greenhouse','toast','Toast'),('greenhouse','gitlab','GitLab'),('greenhouse','hubspotjobs','HubSpot'),('greenhouse','airbnb','Airbnb'),('greenhouse','reddit','Reddit'),('greenhouse','dropbox','Dropbox'),('greenhouse','twilio','Twilio'),('greenhouse','discord','Discord'),('greenhouse','duolingo','Duolingo'),('greenhouse','pinterest','Pinterest'),('greenhouse','roblox','Roblox'),('greenhouse','affirm','Affirm'),('greenhouse','sofi','SoFi'),('greenhouse','asana','Asana'),('greenhouse','zscaler','Zscaler'),('greenhouse','okta','Okta'),('greenhouse','rubrik','Rubrik'),('greenhouse','gusto','Gusto'),('greenhouse','brex','Brex'),('greenhouse','elastic','Elastic'),('greenhouse','samsara','Samsara'),('greenhouse','verkada','Verkada'),('greenhouse','scaleai','Scale AI'),('greenhouse','doordashusa','DoorDash'),('greenhouse','lyft','Lyft'),('greenhouse','robinhood','Robinhood'),('greenhouse','chime','Chime'),('greenhouse','fivetran','Fivetran')]
+SOURCES=[('greenhouse','stripe','Stripe'),('greenhouse','cloudflare','Cloudflare'),('greenhouse','datadog','Datadog'),('lever','palantir','Palantir'),('lever','spotify','Spotify'),('greenhouse','mongodb','MongoDB'),('greenhouse','figma','Figma'),('greenhouse','toast','Toast'),('greenhouse','gitlab','GitLab'),('greenhouse','hubspotjobs','HubSpot'),('greenhouse','airbnb','Airbnb'),('greenhouse','reddit','Reddit'),('greenhouse','dropbox','Dropbox'),('greenhouse','twilio','Twilio'),('greenhouse','discord','Discord'),('greenhouse','duolingo','Duolingo'),('greenhouse','pinterest','Pinterest'),('greenhouse','roblox','Roblox'),('greenhouse','affirm','Affirm'),('greenhouse','sofi','SoFi'),('greenhouse','asana','Asana'),('greenhouse','zscaler','Zscaler'),('greenhouse','okta','Okta'),('greenhouse','rubrik','Rubrik'),('greenhouse','gusto','Gusto'),('greenhouse','brex','Brex'),('greenhouse','elastic','Elastic'),('greenhouse','samsara','Samsara'),('greenhouse','verkada','Verkada'),('greenhouse','scaleai','Scale AI'),('greenhouse','doordashusa','DoorDash'),('greenhouse','lyft','Lyft'),('greenhouse','robinhood','Robinhood'),('greenhouse','chime','Chime'),('greenhouse','fivetran','Fivetran'),('smartrecruiters','ServiceNow','ServiceNow'),('smartrecruiters','BoschGroup','Bosch')]
 ROLES=[("developer","Software development"),("analyst","Data / business analyst"),("qa","QA / testing"),("data","Data engineering / science / ML"),("support","IT / technical support"),("product","Product / project / program"),("security","Cybersecurity"),("cloud","Cloud / DevOps / SRE"),("design","Design / UX"),("finance","Finance / accounting"),("hr","HR / recruiting"),("sales","Sales / customer success"),("marketing","Marketing"),("operations","Operations / supply chain"),("mainframe","Mainframe / COBOL"),("other","Other")]
 AUTH=[('opt','OPT'),('stem_opt','STEM OPT'),('h1b','H-1B'),('green_card','Green card / permanent resident'),('citizen','US citizen')]
 class Plain(HTMLParser):
@@ -65,6 +65,9 @@ def evidence(text):
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*a,**kw):raise ValueError('Feed redirects are not followed')
 def download(provider,slug):
+    if provider=='smartrecruiters':
+        from .smartrecruiters import download as smart_download
+        return smart_download(slug)
     url=f'https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true' if provider=='greenhouse' else f'https://api.lever.co/v0/postings/{slug}?mode=json'
     req=urllib.request.Request(url,headers={'User-Agent':'CareerPilot/2.0 public-job-board-reader','Accept':'application/json'})
     # Retry transient transport failures once; never retry malformed content or redirects.
@@ -81,6 +84,9 @@ def download(provider,slug):
     if not isinstance(rows,list) or len(rows)>1000:raise ValueError('Invalid or oversized feed')
     return rows
 def normalize(provider,slug,company,row):
+    if provider=='smartrecruiters':
+        from .smartrecruiters import normalize as smart_normalize
+        return smart_normalize(slug,company,row)
     if not isinstance(row,dict) or not row.get('id'):raise ValueError('Invalid posting')
     raw_title=row.get('title') if provider=='greenhouse' else row.get('text')
     title=raw_title.strip()[:150] if isinstance(raw_title,str) else ''

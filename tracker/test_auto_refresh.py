@@ -20,6 +20,8 @@ class ScheduledRefreshTests(TestCase):
     @override_settings(AUTO_JOB_REFRESH=True)
     def test_three_hour_due_and_single_background_thread(self):
         state=FeedState.objects.create(key='refresh',attempted=timezone.now()-timedelta(hours=2))
+        from .discovery import SOURCES
+        FeedState.objects.bulk_create([FeedState(key=f'{p}:{b}') for p,b,_ in SOURCES])
         with patch('tracker.auto_refresh.threading.Thread') as thread:
             self.assertFalse(maybe_refresh())
             thread.assert_not_called()
@@ -57,3 +59,4 @@ class ScheduledRefreshTests(TestCase):
         self.assertEqual(evidence('We provide event sponsorship for conferences.')['sponsorship']['state'],'unknown')
         self.assertEqual(evidence('We provide visa sponsorship.')['sponsorship']['state'],'yes')
         self.assertEqual(evidence('We do not offer visa sponsorship.')['sponsorship']['state'],'no')
+

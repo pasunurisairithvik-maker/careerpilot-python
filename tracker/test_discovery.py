@@ -153,11 +153,11 @@ class DiscoveryTests(TestCase):
         self.assertTrue(form.is_valid());self.assertEqual(filtered(form.cleaned_data).count(),0)
     def test_all_discovery_sources_are_allowlisted_and_unique(self):
         from .discovery import SOURCES
-        self.assertEqual(len(SOURCES),35)
-        self.assertEqual(len({(p,b) for p,b,_ in SOURCES}),35)
+        self.assertEqual(len(SOURCES),37)
+        self.assertEqual(len({(p,b) for p,b,_ in SOURCES}),37)
         for provider,board,company in SOURCES:
-            self.assertIn(provider,['greenhouse','lever'])
-            self.assertRegex(board,r'^[a-z0-9]+$')
+            self.assertIn(provider,['greenhouse','lever','smartrecruiters'])
+            self.assertRegex(board,r'^[A-Za-z0-9]+$')
             self.assertTrue(company)
 
     def test_external_shortcuts_include_role_location_without_private_data(self):
