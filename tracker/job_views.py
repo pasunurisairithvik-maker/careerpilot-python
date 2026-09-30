@@ -31,7 +31,7 @@ class JobFilter(forms.Form):
     provider=forms.ChoiceField(required=False,choices=[('','All sources'),('greenhouse','Greenhouse'),('lever','Lever')])
     authorization=forms.ChoiceField(required=False,choices=[('','Any authorization')]+AUTH,label='Listing mentions status')
     include_unknown=forms.BooleanField(required=False,label='Include listings that do not mention this status')
-    sponsorship=forms.ChoiceField(required=False,choices=[('','Any sponsorship'),('yes','Positive statement'),('no','Negative statement'),('unknown','Unknown'),('mixed','Conflicting statements')])
+    sponsorship=forms.ChoiceField(required=False,choices=[('','Any sponsorship'),('yes','Employer states sponsorship support'),('no','Employer states no sponsorship'),('unknown','Not confirmed in listing'),('mixed','Conflicting statements')])
     salary=forms.BooleanField(required=False,label='Salary supplied by source')
     days=forms.ChoiceField(required=False,choices=[('','Any first-seen date'),('1','First seen in 24 hours'),('7','First seen in 7 days'),('30','First seen in 30 days')])
     fresh=forms.BooleanField(required=False,label='Only feeds checked in the last 24 hours')
@@ -103,7 +103,7 @@ def jobs(request):
             if candidate.is_valid():
                 count=filtered(candidate.cleaned_data).count()
                 if count>pager.count:suggestions.append({'label':label,'count':count,'query':urlencode(params)})
-    role_terms={'developer':'software engineer','analyst':'analyst','qa':'QA tester','data':'data science','support':'technical support','product':'product manager'}
+    role_terms={'developer':'software engineer','analyst':'analyst','qa':'QA tester','mainframe':'COBOL mainframe','cloud':'DevOps','security':'cybersecurity','design':'UX designer','finance':'finance analyst','hr':'recruiter','sales':'customer success','marketing':'marketing','operations':'operations','data':'data science','support':'technical support','product':'product manager'}
     terms=' '.join(x for x in [data.get('q',''),role_terms.get(data.get('role'),''),data.get('company','')] if x).strip()
     external=[{'name':name,'url':base+urlencode({param:terms,location_param:data.get('location','')})} for name,base,param,location_param in [('LinkedIn','https://www.linkedin.com/jobs/search/?','keywords','location'),('Indeed','https://www.indeed.com/jobs?','q','l'),('Dice','https://www.dice.com/jobs?','q','location'),('ZipRecruiter','https://www.ziprecruiter.com/jobs-search?','search','location')]]
     return render(request,'jobs.html',{'suggestions':suggestions,'chips':chips,'broader':broader.urlencode(),'external':external,'available':Job.objects.filter(active=True).count(),'form':form,'page':page,'query':query.urlencode(),'saved':saved,'feeds':FeedState.objects.exclude(key='refresh'),'total':pager.count,'sources':SOURCES})

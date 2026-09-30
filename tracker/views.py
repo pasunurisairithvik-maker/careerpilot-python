@@ -202,6 +202,13 @@ def privacy(request):return render(request,'privacy.html')
 def health(request):
     try:
         with connection.cursor() as c:c.execute('SELECT 1 FROM tracker_application LIMIT 1')
+        # Health remains available even if optional cache scheduling fails.
+        try:
+            from .auto_refresh import maybe_refresh
+            maybe_refresh()
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("Could not schedule public-cache refresh")
         return JsonResponse({'status':'ok','service':'careerpilot'})
     except Exception:return JsonResponse({'status':'unavailable'},status=503)
 def live(request):return JsonResponse({'status':'ok','service':'careerpilot'})

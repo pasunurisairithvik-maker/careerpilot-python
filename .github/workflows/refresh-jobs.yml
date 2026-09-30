@@ -1,0 +1,22 @@
+name: Refresh public job cache
+on:
+  schedule:
+    - cron: '17 */3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: public-job-refresh
+  cancel-in-progress: false
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Wake service and start due public-cache refresh
+        run: |
+          curl --fail --silent --show-error --retry 1 --retry-delay 10 --max-time 90 https://careerpilot-python-7twk.onrender.com/healthz
+          # A sleeping free instance may have just refreshed during startup.
+          # Keep requests read-only; refresh uses only fixed public employer feeds.
+          sleep 30
+          curl --fail --silent --show-error --max-time 90 https://careerpilot-python-7twk.onrender.com/healthz

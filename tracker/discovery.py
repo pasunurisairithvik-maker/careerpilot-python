@@ -7,7 +7,7 @@ from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
 SOURCES=[('greenhouse','stripe','Stripe'),('greenhouse','cloudflare','Cloudflare'),('greenhouse','datadog','Datadog'),('lever','palantir','Palantir'),('lever','spotify','Spotify'),('greenhouse','mongodb','MongoDB'),('greenhouse','figma','Figma'),('greenhouse','toast','Toast'),('greenhouse','gitlab','GitLab'),('greenhouse','hubspotjobs','HubSpot'),('greenhouse','airbnb','Airbnb'),('greenhouse','reddit','Reddit'),('greenhouse','dropbox','Dropbox'),('greenhouse','twilio','Twilio'),('greenhouse','discord','Discord'),('greenhouse','duolingo','Duolingo'),('greenhouse','pinterest','Pinterest'),('greenhouse','roblox','Roblox'),('greenhouse','affirm','Affirm'),('greenhouse','sofi','SoFi')]
-ROLES=[('developer','Developer / software engineer'),('analyst','Analyst'),('qa','QA / testing'),('data','Data science / ML'),('support','IT / technical support'),('product','Product / project'),('other','Other')]
+ROLES=[("developer","Software development"),("analyst","Data / business analyst"),("qa","QA / testing"),("data","Data engineering / science / ML"),("support","IT / technical support"),("product","Product / project / program"),("security","Cybersecurity"),("cloud","Cloud / DevOps / SRE"),("design","Design / UX"),("finance","Finance / accounting"),("hr","HR / recruiting"),("sales","Sales / customer success"),("marketing","Marketing"),("operations","Operations / supply chain"),("mainframe","Mainframe / COBOL"),("other","Other")]
 AUTH=[('opt','OPT'),('stem_opt','STEM OPT'),('h1b','H-1B'),('green_card','Green card / permanent resident'),('citizen','US citizen')]
 class Plain(HTMLParser):
     def __init__(self):super().__init__();self.parts=[];self.skip=0
@@ -27,7 +27,7 @@ def safe_url(value):
     return urlunsplit((p.scheme,p.netloc,p.path,urlencode([(k,v) for k,v in parse_qsl(p.query) if not k.lower().startswith('utm_')]),''))
 def classify(title):
     t=title.lower()
-    for role,pattern in [('qa',r'\bqa\b|quality assurance|test engineer|sdet'),('data',r'data scientist|machine learning|research scientist|data engineer'),('analyst',r'analyst|analytics'),('support',r'help desk|technical support|it support|support engineer'),('developer',r'engineer|developer|programmer'),('product',r'product manager|project manager|program manager')]:
+    for role,pattern in [('mainframe',r'mainframe|cobol|z/os'),('security',r'cybersecurity|security engineer|security analyst|information security'),('cloud',r'devops|site reliability|\\bsre\\b|cloud engineer|platform engineer'),('design',r'designer|user experience|\\bux\\b|\\bui\\b'),('hr',r'human resources|recruiter|recruiting|people operations|hr analyst'),('finance',r'finance|financial|accountant|accounting|treasury|fp&a'),('sales',r'customer success|account executive|sales|business development'),('marketing',r'marketing|seo|content strategist'),('operations',r'supply chain|logistics|operations manager|operations coordinator'),('qa',r'\bqa\b|quality assurance|test engineer|sdet'),('data',r'data scientist|machine learning|research scientist|data engineer'),('analyst',r'analyst|analytics'),('support',r'help desk|technical support|it support|support engineer'),('developer',r'engineer|developer|programmer'),('product',r'product manager|project manager|program manager')]:
         if re.search(pattern,t):return role
     return 'other'
 def seniority(title):
@@ -54,7 +54,8 @@ def evidence(text):
         result[key]={'state':state,'evidence':quotes[:3]}
     sponsor=[]
     for sentence in sentences:
-        if not re.search(r'visa sponsorship|immigration sponsorship|sponsor.{0,25}(?:visa|H[ -]?1[ -]?B)|sponsorship',sentence,re.I):continue
+        if not re.search(r'visa sponsorship|immigration sponsorship|sponsor.{0,40}(?:visa|H[ -]?1[ -]?B)|(?:visa|immigration|work authori[sz]ation|employment).{0,60}sponsor|(?:offer|provide|require|need|eligible for|without|no).{0,30}sponsorship',sentence,re.I):continue
+        if re.search(r'event|conference|brand|sports|marketing',sentence,re.I) and not re.search(r'visa|immigration|work authori[sz]ation|H[ -]?1[ -]?B',sentence,re.I):continue
         negative=bool(re.search(r'no sponsorship|without.{0,25}sponsorship|not.{0,40}sponsor|unable.{0,40}sponsor|cannot.{0,40}sponsor|do not|will not',sentence,re.I))
         positive=bool(re.search(r'(?:offer|provide|available|support|eligible for).{0,40}sponsor|sponsor.{0,20}(?:available|provided)',sentence,re.I))
         sponsor.append(('no' if negative else 'yes' if positive else 'unknown',sentence.strip()[:700]))
@@ -87,14 +88,14 @@ def normalize(provider,slug,company,row):
     if isinstance(salary_range,dict):salary=(salary+'\n'+json.dumps(salary_range,ensure_ascii=False))[:1000]
     description=description[:20000]
     return dict(source_key=f'{provider}:{slug}:{row["id"]}',provider=provider,board=slug,company=company,title=title,location=location,description=description,url=url,role=classify(title),level=seniority(title),workplace=remote,salary=salary,evidence=evidence(description),source_updated=str(row.get('updated_at') or '')[:50])
-def refresh(force=False):
+def refresh(force=False, min_interval=30):
     from .models import Job,FeedState
     now=timezone.now()
     selected=SOURCES
     with transaction.atomic():
         FeedState.objects.get_or_create(key='refresh')
         lock=FeedState.objects.select_for_update().get(key='refresh')
-        if lock.attempted and now-lock.attempted<timedelta(minutes=30) and not force:
+        if lock.attempted and now-lock.attempted<timedelta(minutes=min_interval) and not force:
             existing=set(FeedState.objects.values_list('key',flat=True))
             selected=[source for source in SOURCES if f'{source[0]}:{source[1]}' not in existing]
             if not selected:return {'busy':True}

@@ -55,3 +55,6 @@ MAX_APPLICATIONS=100
 
 
 from .observability import LOGGING
+
+# CI/local tests do not contact employer feeds.
+AUTO_JOB_REFRESH = os.getenv('AUTO_JOB_REFRESH', '0' if DEBUG else '1') == '1'
