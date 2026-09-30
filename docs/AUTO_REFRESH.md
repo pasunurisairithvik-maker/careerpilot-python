@@ -6,3 +6,5 @@ GitHub scheduled runs can be delayed or dropped and scheduled workflows on inact
 Role categories are title-based and sponsorship labels summarize textual employer statements. Unknown does not imply sponsorship or immigration eligibility. Source counts are not a completeness claim.
 
 Seven additional Greenhouse boards were verified on 2026-09-30: Asana 94, Zscaler 367, Okta 360, Rubrik 127, Gusto 100, Brex 268, Elastic 391. These are source observations, not permanent totals. Three rejected board endpoints were not added.
+
+A 170-minute due threshold allows ten minutes of scheduler jitter around the three-hour cadence, avoiding an accidental six-hour interval when a prior run started a few seconds late.
