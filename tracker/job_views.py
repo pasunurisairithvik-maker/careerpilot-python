@@ -46,8 +46,12 @@ def filtered(data):
         if term.strip():qs=qs.exclude(Q(title__icontains=term.strip())|Q(description__icontains=term.strip()))
     for field in ['company','location']:
         if data.get(field):qs=qs.filter(**{field+'__icontains':data[field]})
-    for field in ['role','provider']:
+    if data.get('level'):
+        qs=qs.filter(Q(level=data['level'])|Q(level='unspecified')) if data.get('include_unstated') else qs.filter(level=data['level'])
+    for field in ['role','provider','workplace']:
         if data.get(field):qs=qs.filter(**{field:data[field]})
+    if data.get('sponsorship'):qs=qs.filter(evidence__sponsorship__state=data['sponsorship'])
+    if data.get('salary'):qs=qs.exclude(salary='')
     if data.get('authorization'):
         field='evidence__'+data['authorization']+'__state'
         states=['stated','mentioned','mixed']+(['unknown'] if data.get('include_unknown') else [])
@@ -56,20 +60,12 @@ def filtered(data):
     if data.get('fresh'):qs=qs.filter(checked__gte=timezone.now()-timedelta(hours=24))
     # Same canonical application URL represents the same listing; don't merge distinct requisitions merely by title.
     seen=set();ids=[]
-    check_traits=bool(data.get('level') or data.get('workplace') or data.get('salary') or data.get('sponsorship'))
-    columns=['pk','url']+(['title','description','location','workplace','salary'] if check_traits else [])
+    check_experience=data.get('level') in ['entry','intern']
+    columns=['pk','url']+(['description'] if check_experience else [])
     for row in qs.order_by('-active','-first_seen','pk').values_list(*columns).iterator(chunk_size=100):
         pk,url=row[:2]
-        if check_traits:
-            title,description,location,workplace,pay=row[2:]
-            if data.get('sponsorship') and jd_evidence(description)['sponsorship']['state']!=data['sponsorship']:continue
-            level=jd_level(title,description)
-            if data.get('level') and level!=data['level'] and not (data.get('include_unstated') and level=='unspecified'):continue
-            arrangement,_=jd_workplace(location,description,workplace)
-            if data.get('workplace') and arrangement!=data['workplace']:continue
-            if data.get('salary') and not jd_salary(description,pay):continue
-            experience=experience_requirement(description)
-            if data.get('level') in ['entry','intern'] and experience and experience['years']>2:continue
+        experience=experience_requirement(row[2]) if check_experience else None
+        if experience and experience['years']>2:continue
         if url not in seen:seen.add(url);ids.append(pk)
     qs=qs.filter(pk__in=ids)
     return qs.order_by('company','title','pk') if data.get('sort')=='company' else qs.order_by('title','pk') if data.get('sort')=='title' else qs
@@ -108,6 +104,11 @@ def jobs(request):
             v=query.copy();v['include_unstated']='on'
             if data.get('authorization'):v['include_unknown']='on'
             variants.append(('Explore roles with unstated seniority and authorization',v))
+        if data.get('sponsorship'):
+            v=query.copy();v.pop('sponsorship',None)
+            if data.get('authorization'):v['include_unknown']='on'
+            if data.get('level'):v['include_unstated']='on'
+            variants.append(('Explore without a sponsorship restriction',v))
         if data.get('role'):
             variants.append(('Browse all '+dict(ROLES).get(data['role'],data['role'])+' roles',{'role':data['role']}))
         for label,params in variants:

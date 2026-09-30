@@ -30,7 +30,7 @@ class JobPresentationUnitTests(SimpleTestCase):
 class JobPresentationIntegrationTests(TestCase):
     def make_job(self, key, description, level="unspecified"):
         return Job.objects.create(source_key=key, provider="greenhouse", board="synthetic",
-            company="Synthetic Finance", title="Finance Analyst", location="United States",
+            company="Synthetic Finance", title="Data Analyst", location="United States",
             description=description, url="https://example.org/jobs/" + key, role="analyst",
             level=level, workplace="unspecified", checked=timezone.now(),
             evidence={"opt": {"state": "unknown", "evidence": []}})
@@ -38,6 +38,8 @@ class JobPresentationIntegrationTests(TestCase):
     def test_description_experience_excluded_even_with_unstated_seniority(self):
         senior = self.make_job("senior", "What you'll need:\n6+ years of experience, ideally in financial services.")
         junior = self.make_job("junior", "Qualifications:\n1-2 years of experience.")
+        from django.core.management import call_command
+        call_command('reclassify_jobs',verbosity=0)
         self.assertEqual(list(filtered({"role": "analyst", "level": "entry", "include_unstated": True})), [junior])
         # A JD stating entry-level experience is not an unstated internship.
         self.assertEqual(list(filtered({"role": "analyst", "level": "intern", "include_unstated": True})), [])

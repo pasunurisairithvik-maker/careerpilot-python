@@ -22,6 +22,7 @@ class ScheduledRefreshTests(TestCase):
         state=FeedState.objects.create(key='refresh',attempted=timezone.now()-timedelta(hours=2))
         from .discovery import SOURCES
         FeedState.objects.bulk_create([FeedState(key=f'{p}:{b}') for p,b,_ in SOURCES])
+        FeedState.objects.create(key='normalization-v4',success=timezone.now())
         with patch('tracker.auto_refresh.threading.Thread') as thread:
             self.assertFalse(maybe_refresh())
             thread.assert_not_called()
@@ -36,7 +37,7 @@ class ScheduledRefreshTests(TestCase):
 
     def test_refresh_failure_releases_guard(self):
         _guard.acquire()
-        with patch('tracker.auto_refresh.refresh',side_effect=TimeoutError),patch('tracker.auto_refresh.close_old_connections'):
+        with patch('tracker.auto_refresh.refresh',side_effect=TimeoutError),patch('tracker.auto_refresh.close_old_connections'),patch('django.core.management.call_command'):
             with self.assertLogs('tracker.auto_refresh',level='ERROR'):
                 _run()
         self.assertFalse(_guard.locked())
