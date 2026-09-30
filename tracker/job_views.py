@@ -16,6 +16,7 @@ from .discovery import ROLES,AUTH,SOURCES,refresh
 from .matching import analyse
 from .resume_tools import checks,build_text,docx
 from .forms import ResumeBuilderForm
+from .job_presentation import experience_requirement,description_sections,authorization_rows
 class JobFilter(forms.Form):
     q=forms.CharField(required=False,max_length=100,label='Keywords')
     exclude=forms.CharField(required=False,max_length=100,label='Exclude words (comma separated)')
@@ -58,7 +59,9 @@ def filtered(data):
     if data.get('fresh'):qs=qs.filter(checked__gte=timezone.now()-timedelta(hours=24))
     # Same canonical application URL represents the same listing; don't merge distinct requisitions merely by title.
     seen=set();ids=[]
-    for pk,url in qs.order_by('-active','-first_seen','pk').values_list('pk','url'):
+    for pk,url,description in qs.order_by('-active','-first_seen','pk').values_list('pk','url','description').iterator(chunk_size=100):
+        experience=experience_requirement(description)
+        if data.get('level') in ['entry','intern'] and experience and experience['years']>2:continue
         if url not in seen:seen.add(url);ids.append(pk)
     qs=qs.filter(pk__in=ids)
     return qs.order_by('company','title','pk') if data.get('sort')=='company' else qs.order_by('title','pk') if data.get('sort')=='title' else qs
@@ -67,7 +70,9 @@ def jobs(request):
     valid=not request.GET or form.is_valid()
     data=form.cleaned_data if request.GET and valid else {}
     qs=filtered(data) if valid else Job.objects.none()
-    pager=Paginator(qs.defer('description','evidence'),20);page=pager.get_page(request.GET.get('page'))
+    pager=Paginator(qs.defer('evidence'),20);page=pager.get_page(request.GET.get('page'))
+    for listing in page:
+        listing.experience=experience_requirement(listing.description)
     query=request.GET.copy();query.pop('page',None)
     saved=[]
     if request.user.is_authenticated:
@@ -105,7 +110,7 @@ def jobs(request):
 def job(request,pk):
     item=get_object_or_404(Job,pk=pk)
     match=analyse(item.description,request.user.profile.resume) if request.user.is_authenticated else None
-    return render(request,'job.html',{'job':item,'match':match,'stale':timezone.now()-item.checked>timedelta(hours=24),'auth_labels':AUTH})
+    return render(request,'job.html',{'job':item,'match':match,'stale':timezone.now()-item.checked>timedelta(hours=24),'auth_labels':AUTH,'experience':experience_requirement(item.description),'sections':description_sections(item.description),'authorization_rows':authorization_rows(item.evidence),'has_resume':bool(request.user.is_authenticated and request.user.profile.resume.strip())})
 @login_required
 @require_POST
 def sync(request):
