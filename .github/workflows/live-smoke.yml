@@ -1,0 +1,33 @@
+name: Verify live CareerPilot release
+on: [push]
+permissions:
+  contents: read
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Allow deployment startup and verify public pages
+        run: |
+          sleep 120
+          python - <<'PY'
+          import urllib.request,json,time
+          base='https://careerpilot-python-7twk.onrender.com'
+          for path in ['/healthz','/','/jobs/']:
+              for attempt in range(2):
+                  try:
+                      with urllib.request.urlopen(base+path,timeout=90) as r:
+                          body=r.read(2000000).decode()
+                          assert r.status==200
+                      if path=='/healthz':assert json.loads(body)['status']=='ok'
+                      if path=='/jobs/':
+                          assert 'Cybersecurity' in body
+                          assert 'Mainframe / COBOL' in body
+                          assert 'Automatic refresh is scheduled every three hours' in body
+                          assert 'greenhouse:asana' in body
+                      print('PASS',path)
+                      break
+                  except Exception:
+                      if attempt:raise
+                      time.sleep(10)
+          PY
