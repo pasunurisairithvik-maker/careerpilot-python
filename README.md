@@ -3,7 +3,7 @@
 A zero-budget Python job-discovery and private career workspace. Live: https://careerpilot-python-7twk.onrender.com/
 
 ## What works
-- Unified real openings from six curated employer boards: Stripe, Cloudflare, Datadog, MongoDB (Greenhouse); Palantir and Spotify (Lever).
+- Unified real openings from ten curated employer boards: Stripe, Cloudflare, Datadog, MongoDB, Figma, Toast, GitLab and HubSpot (Greenhouse); Palantir and Spotify (Lever).
 - Keyword, location, company, developer/analyst/QA/data/support/product role, title-based experience, source, workplace, salary-present, freshness and first-seen filters. Original employer links and source timestamps.
 - OPT, STEM OPT, H-1B, green-card/permanent-resident and citizen **listing mention** filters, exact evidence, exclusions, mixed/unknown states and separate sponsorship-statement filters. They do not certify candidate eligibility or legal compliance.
 - Duplicate canonical application URL suppression; successfully removed records marked closed; 30-day closed public-cache retention; failures preserve cached jobs.
@@ -36,3 +36,6 @@ Read-only, fixed allowlisted endpoints. No user-supplied server fetch URL or red
 References: [Greenhouse Job Board API](https://docs.greenhouse.io/job-board.html), [Lever public Postings API](https://github.com/lever/postings-api). Listings belong to their employers/providers; apply and verify current terms on the original site. This project is not affiliated with HirePilot, employers, or ATS vendors.
 
 See docs/OPERATIONS.md and docs/RELEASE.md for release verification and limits. AI-assisted implementation; the student must understand and demonstrate the code rather than claim unaided authorship.
+
+### Discovery refinements
+Title-only search, comma-separated excluded words, company/title sorting and removable active-filter chips help refine results. Empty states report cached active listings and offer an explicit unknown-authorization expansion without claiming eligibility. LinkedIn, Indeed, Dice and ZipRecruiter links are external search shortcuts, not imported feeds or partner integrations. Search terms are sent to those sites only when a user opens the link.

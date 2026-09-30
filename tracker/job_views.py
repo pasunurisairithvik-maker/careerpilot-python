@@ -18,6 +18,9 @@ from .resume_tools import checks,build_text,docx
 from .forms import ResumeBuilderForm
 class JobFilter(forms.Form):
     q=forms.CharField(required=False,max_length=100,label='Keywords')
+    exclude=forms.CharField(required=False,max_length=100,label='Exclude words (comma separated)')
+    title_only=forms.BooleanField(required=False,label='Search keywords in title only')
+    sort=forms.ChoiceField(required=False,choices=[('','Recently discovered'),('company','Company A–Z'),('title','Job title A–Z')])
     location=forms.CharField(required=False,max_length=100)
     company=forms.CharField(required=False,max_length=100)
     role=forms.ChoiceField(required=False,choices=[('','All roles')]+ROLES)
@@ -34,7 +37,10 @@ class JobFilter(forms.Form):
 def filtered(data):
     qs=Job.objects.all()
     if not data.get('closed'):qs=qs.filter(active=True)
-    if data.get('q'):qs=qs.filter(Q(title__icontains=data['q'])|Q(description__icontains=data['q'])|Q(company__icontains=data['q']))
+    if data.get('q'):
+        qs=qs.filter(title__icontains=data['q']) if data.get('title_only') else qs.filter(Q(title__icontains=data['q'])|Q(description__icontains=data['q'])|Q(company__icontains=data['q']))
+    for term in (data.get('exclude') or '').split(','):
+        if term.strip():qs=qs.exclude(Q(title__icontains=term.strip())|Q(description__icontains=term.strip()))
     for field in ['company','location']:
         if data.get(field):qs=qs.filter(**{field+'__icontains':data[field]})
     for field in ['role','level','workplace','provider']:
@@ -51,7 +57,8 @@ def filtered(data):
     seen=set();ids=[]
     for pk,url in qs.order_by('-active','-first_seen','pk').values_list('pk','url'):
         if url not in seen:seen.add(url);ids.append(pk)
-    return qs.filter(pk__in=ids)
+    qs=qs.filter(pk__in=ids)
+    return qs.order_by('company','title','pk') if data.get('sort')=='company' else qs.order_by('title','pk') if data.get('sort')=='title' else qs
 def jobs(request):
     form=JobFilter(request.GET or None)
     valid=not request.GET or form.is_valid()
@@ -65,7 +72,16 @@ def jobs(request):
             f=JobFilter(search.filters)
             count=filtered(f.cleaned_data).filter(first_seen__gt=search.seen or search.created).count() if f.is_valid() else 0
             saved.append({'item':search,'new':count,'query':urlencode(search.filters)})
-    return render(request,'jobs.html',{'form':form,'page':page,'query':query.urlencode(),'saved':saved,'feeds':FeedState.objects.exclude(key='refresh'),'total':pager.count,'sources':SOURCES})
+    chips=[]
+    for key,value in data.items():
+        if value:
+            reduced=query.copy();reduced.pop(key,None)
+            label=dict(form.fields[key].choices).get(value,value) if hasattr(form.fields[key],'choices') else 'Enabled' if value is True else value
+            chips.append({'label':f'{form.fields[key].label or key.replace("_"," ").title()}: {label}','query':reduced.urlencode()})
+    broader=query.copy();broader['include_unknown']='on'
+    terms=' '.join(str(data.get(k) or '') for k in ['q','location']).strip()
+    external=[{'name':name,'url':base+urlencode({param:terms})} for name,base,param in [('LinkedIn','https://www.linkedin.com/jobs/search/?','keywords'),('Indeed','https://www.indeed.com/jobs?','q'),('Dice','https://www.dice.com/jobs?','q'),('ZipRecruiter','https://www.ziprecruiter.com/jobs-search?','search')]]
+    return render(request,'jobs.html',{'chips':chips,'broader':broader.urlencode(),'external':external,'available':Job.objects.filter(active=True).count(),'form':form,'page':page,'query':query.urlencode(),'saved':saved,'feeds':FeedState.objects.exclude(key='refresh'),'total':pager.count,'sources':SOURCES})
 def job(request,pk):
     item=get_object_or_404(Job,pk=pk)
     match=analyse(item.description,request.user.profile.resume) if request.user.is_authenticated else None

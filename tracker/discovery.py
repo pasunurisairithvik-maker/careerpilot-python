@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
-SOURCES=[('greenhouse','stripe','Stripe'),('greenhouse','cloudflare','Cloudflare'),('greenhouse','datadog','Datadog'),('lever','palantir','Palantir'),('lever','spotify','Spotify'),('greenhouse','mongodb','MongoDB')]
+SOURCES=[('greenhouse','stripe','Stripe'),('greenhouse','cloudflare','Cloudflare'),('greenhouse','datadog','Datadog'),('lever','palantir','Palantir'),('lever','spotify','Spotify'),('greenhouse','mongodb','MongoDB'),('greenhouse','figma','Figma'),('greenhouse','toast','Toast'),('greenhouse','gitlab','GitLab'),('greenhouse','hubspotjobs','HubSpot')]
 ROLES=[('developer','Developer / software engineer'),('analyst','Analyst'),('qa','QA / testing'),('data','Data science / ML'),('support','IT / technical support'),('product','Product / project'),('other','Other')]
 AUTH=[('opt','OPT'),('stem_opt','STEM OPT'),('h1b','H-1B'),('green_card','Green card / permanent resident'),('citizen','US citizen')]
 class Plain(HTMLParser):
