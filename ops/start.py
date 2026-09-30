@@ -15,6 +15,8 @@ def main():
     subprocess.run([sys.executable,'manage.py','migrate','--noinput'],check=True)
     try:subprocess.run([sys.executable,'manage.py','housekeeping'],check=True,timeout=30)
     except subprocess.TimeoutExpired:print('Expired-session cleanup timed out; Django still rejects expired sessions. Continuing startup.',flush=True)
+    try:subprocess.run([sys.executable,'manage.py','reclassify_jobs'],check=False,timeout=60)
+    except subprocess.TimeoutExpired:print('Public listing relabeling timed out; it will resume on the next startup.',flush=True)
     try:subprocess.run([sys.executable,'manage.py','sync_jobs'],check=False,timeout=180)
     except subprocess.TimeoutExpired:print('Job feed refresh timed out; serving cached data.',flush=True)
     args=['gunicorn','config.wsgi:application','--bind','0.0.0.0:'+bounded('PORT',10000,65535),'--workers',bounded('WEB_CONCURRENCY',1,8),'--threads',bounded('WEB_THREADS',4,8),'--timeout','60','--graceful-timeout','30','--max-requests','500','--max-requests-jitter','50','--access-logfile','/dev/null']

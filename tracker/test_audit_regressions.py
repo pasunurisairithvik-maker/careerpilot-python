@@ -60,6 +60,20 @@ class AuditRegressionTests(SimpleTestCase):
             with self.assertRaises(ValueError):normalize('greenhouse','synthetic','Example',{'id':1,'title':value,'absolute_url':'https://example.org/jobs/1'})
 
 class SearchMatrixTests(TestCase):
+    def test_existing_cache_relabels_without_changing_source_or_freshness(self):
+        from django.core.management import call_command
+        from django.utils import timezone
+        from .models import Job
+        checked=timezone.now()
+        job=Job.objects.create(source_key='synthetic:relabel',provider='greenhouse',board='synthetic',company='Example',title='SRE',role='other',level='intern',description='Visa sponsorship is not available.',url='https://example.org/job',checked=checked)
+        call_command('reclassify_jobs',stdout=io.StringIO())
+        job.refresh_from_db()
+        self.assertEqual(job.role,'cloud');self.assertEqual(job.level,'unspecified')
+        self.assertEqual(job.evidence['sponsorship']['state'],'no')
+        self.assertEqual(job.checked,checked);self.assertTrue(job.active)
+        with patch('tracker.management.commands.reclassify_jobs.classify') as classify:
+            call_command('reclassify_jobs',stdout=io.StringIO());classify.assert_not_called()
+
     def test_public_filter_combinations_and_query_bound(self):
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
