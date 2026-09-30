@@ -116,10 +116,17 @@ def jobs(request):
             if candidate.is_valid():
                 count=filtered(candidate.cleaned_data).count()
                 if count>pager.count:suggestions.append({'label':label,'count':count,'query':urlencode(params)})
+    recommendations=[];recommendation_query=''
+    if valid and pager.count==0 and suggestions:
+        recommendation_query=suggestions[0]['query']
+        from urllib.parse import parse_qs
+        params={k:v[-1] for k,v in parse_qs(recommendation_query).items()}
+        alternative=JobFilter(params)
+        if alternative.is_valid():recommendations=list(filtered(alternative.cleaned_data)[:3])
     role_terms={'developer':'software engineer','analyst':'analyst','qa':'QA tester','mainframe':'COBOL mainframe','cloud':'DevOps','security':'cybersecurity','design':'UX designer','finance':'finance analyst','hr':'recruiter','sales':'customer success','marketing':'marketing','operations':'operations','data':'data science','support':'technical support','product':'product manager'}
     terms=' '.join(x for x in [data.get('q',''),role_terms.get(data.get('role'),''),data.get('company','')] if x).strip()
     external=[{'name':name,'url':base+urlencode({param:terms,location_param:data.get('location','')})} for name,base,param,location_param in [('LinkedIn','https://www.linkedin.com/jobs/search/?','keywords','location'),('Indeed','https://www.indeed.com/jobs?','q','l'),('Dice','https://www.dice.com/jobs?','q','location'),('ZipRecruiter','https://www.ziprecruiter.com/jobs-search?','search','location')]]
-    return render(request,'jobs.html',{'suggestions':suggestions,'chips':chips,'broader':broader.urlencode(),'external':external,'available':Job.objects.filter(active=True).count(),'form':form,'page':page,'query':query.urlencode(),'saved':saved,'feeds':FeedState.objects.filter(Q(key__startswith='greenhouse:')|Q(key__startswith='lever:')|Q(key__startswith='smartrecruiters:')),'total':pager.count,'sources':SOURCES})
+    return render(request,'jobs.html',{'recommendations':recommendations,'recommendation_query':recommendation_query,'suggestions':suggestions,'chips':chips,'broader':broader.urlencode(),'external':external,'available':Job.objects.filter(active=True).count(),'form':form,'page':page,'query':query.urlencode(),'saved':saved,'feeds':FeedState.objects.filter(Q(key__startswith='greenhouse:')|Q(key__startswith='lever:')|Q(key__startswith='smartrecruiters:')),'total':pager.count,'sources':SOURCES})
 def job(request,pk):
     item=get_object_or_404(Job,pk=pk)
     match=analyse(item.description,request.user.profile.resume) if request.user.is_authenticated else None

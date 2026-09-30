@@ -41,3 +41,11 @@ class FilterMatrix(TestCase):
    for row in rows:
     self.assertEqual((row.role,row.level,row.workplace,row.evidence['sponsorship']['state']),(role,level,place,sponsor))
   self.assertEqual(filtered({'role':'qa'}).count(),0)
+
+ def test_empty_strict_search_shows_separate_broader_cards(self):
+  Job.objects.create(source_key='synthetic:broad',provider='greenhouse',board='synthetic',company='Synthetic',title='Junior Software Engineer',role='developer',level='entry',description='1 year of experience.',evidence={'opt':{'state':'unknown','evidence':[]},'sponsorship':{'state':'unknown','evidence':[]}},url='https://example.org/broad',checked=timezone.now())
+  response=self.client.get('/jobs/?role=developer&level=entry&authorization=opt')
+  self.assertEqual(response.context['total'],0)
+  self.assertContains(response,'Broader matches to review')
+  self.assertContains(response,'Junior Software Engineer')
+  self.assertContains(response,'do not match every selected filter')
