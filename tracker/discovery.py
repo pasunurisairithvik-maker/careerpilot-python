@@ -107,11 +107,13 @@ def refresh(force=False, min_interval=30):
         lock=FeedState.objects.select_for_update().get(key='refresh')
         if lock.attempted and now-lock.attempted<timedelta(minutes=min_interval) and not force:
             existing=set(FeedState.objects.values_list('key',flat=True))
-            selected=[source for source in SOURCES if f'{source[0]}:{source[1]}' not in existing]
+            retryable=set(FeedState.objects.exclude(error='').filter(attempted__lt=now-timedelta(minutes=5)).values_list('key',flat=True))
+            selected=[source for source in SOURCES if f'{source[0]}:{source[1]}' not in existing or f'{source[0]}:{source[1]}' in retryable]
             if not selected:return {'busy':True}
         # Reserve new boards under the global lock so concurrent refreshes cannot repeat them.
         for provider,slug,_ in selected:
-            FeedState.objects.get_or_create(key=f'{provider}:{slug}',defaults={'attempted':now})
+            state,_=FeedState.objects.get_or_create(key=f'{provider}:{slug}',defaults={'attempted':now})
+            state.attempted=now;state.save(update_fields=['attempted'])
         lock.attempted=now;lock.save(update_fields=['attempted'])
     def fetch(source):
         provider,slug,company=source

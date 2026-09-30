@@ -60,6 +60,22 @@ class AuditRegressionTests(SimpleTestCase):
             with self.assertRaises(ValueError):normalize('greenhouse','synthetic','Example',{'id':1,'title':value,'absolute_url':'https://example.org/jobs/1'})
 
 class SearchMatrixTests(TestCase):
+    def test_failed_feed_can_recover_without_refreshing_healthy_boards(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from .models import FeedState
+        from .discovery import refresh
+        now=timezone.now()
+        FeedState.objects.create(key='refresh',attempted=now)
+        failed=FeedState.objects.create(key='greenhouse:broken',error='TimeoutError',attempted=now-timedelta(minutes=4))
+        FeedState.objects.create(key='greenhouse:healthy',attempted=now,success=now)
+        with patch('tracker.discovery.SOURCES',[('greenhouse','broken','Broken'),('greenhouse','healthy','Healthy')]),patch('tracker.discovery.download',return_value=[]) as download:
+            self.assertTrue(refresh().get('busy'));download.assert_not_called()
+            failed.attempted=now-timedelta(minutes=6);failed.save()
+            self.assertEqual(refresh(),{'Broken':0})
+            download.assert_called_once_with('greenhouse','broken')
+            failed.refresh_from_db();self.assertEqual(failed.error,'');self.assertIsNotNone(failed.success)
+
     def test_existing_cache_relabels_without_changing_source_or_freshness(self):
         from django.core.management import call_command
         from django.utils import timezone
