@@ -1,0 +1,29 @@
+name: Verify discovery audit live
+on: [push]
+permissions:
+  contents: read
+jobs:
+  public-pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify anonymous endpoints and search combinations
+        run: |
+          sleep 120
+          python - <<'PY'
+          import json,time,urllib.request
+          base='https://careerpilot-python-7twk.onrender.com'
+          paths=['/healthz','/','/jobs/','/jobs/?role=analyst&level=entry&authorization=opt&days=7','/jobs/?role=analyst&level=entry&authorization=opt&include_unstated=on&include_unknown=on','/jobs/?role=cloud','/jobs/?role=invalid','/jobs/?page=999999']
+          for path in paths:
+              for attempt in range(2):
+                  try:
+                      with urllib.request.urlopen(base+path,timeout=90) as r:
+                          body=r.read(2000000).decode();assert r.status==200
+                      if path=='/healthz':assert json.loads(body)['status']=='ok'
+                      if path.startswith('/jobs/'):assert 'Find your next opportunity' in body
+                      print('PASS',path)
+                      break
+                  except Exception:
+                      if attempt:raise
+                      time.sleep(10)
+          PY
