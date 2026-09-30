@@ -8,6 +8,7 @@ def level(title,description):
  if titled=='intern':return titled
  if re.search(r'\b(?:director|head of|vice president|vp|chief|manager)\b',title,re.I):return 'management'
  requirement=experience_requirement(description)
+ if titled=='senior':return titled
  if requirement:
   years=requirement['years']
   return 'entry' if years<=2 else 'mid' if years<=5 else 'senior'
@@ -22,7 +23,7 @@ def workplace(location,description,metadata=''):
  }
  for kind,pattern in patterns.items():
   for line in text.splitlines():
-   if re.search(pattern,line,re.I) and not re.search(r'(?:not|no|cannot|unable).{0,25}(?:remote|hybrid)',line,re.I):return kind,line.strip()[:500]
+   if re.search(pattern,line,re.I) and not re.search(r'(?:not|no|cannot|unable).{0,25}(?:remote|hybrid)|(?:remote|hybrid).{0,25}(?:not available|not permitted|not supported)',line,re.I):return kind,line.strip()[:500]
  if metadata in ('remote','hybrid','onsite','on-site'):return metadata.replace('on-site','onsite'),'Employer workplace metadata: '+metadata
  for kind in ('hybrid','remote','onsite'):
   if re.search(r'\b'+kind+r'\b',location or '',re.I):return kind,location[:500]

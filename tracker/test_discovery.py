@@ -147,7 +147,7 @@ class DiscoveryTests(TestCase):
         self.assertContains(response,'not confirmation of suitability')
         form=JobFilter({'role':'analyst','level':'entry','authorization':'opt','include_unstated':'on','include_unknown':'on'})
         self.assertTrue(form.is_valid());self.assertEqual(filtered(form.cleaned_data).count(),1)
-        self.job.level='senior';self.job.save()
+        self.job.level='senior';self.job.title='Senior Data Analyst';self.job.save()
         self.assertEqual(filtered(form.cleaned_data).count(),0)
         form=JobFilter({'level':'entry','include_unstated':'on','authorization':'opt'})
         self.assertTrue(form.is_valid());self.assertEqual(filtered(form.cleaned_data).count(),0)

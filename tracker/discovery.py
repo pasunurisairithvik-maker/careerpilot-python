@@ -55,7 +55,7 @@ def evidence(text):
         result[key]={'state':state,'evidence':quotes[:3]}
     sponsor=[]
     for sentence in sentences:
-        if not re.search(r'visa sponsorship|immigration sponsorship|sponsor.{0,40}(?:visa|H[ -]?1[ -]?B)|(?:visa|immigration|work authori[sz]ation|employment).{0,60}sponsor|(?:offer|provide|require|need|eligible for|without|no).{0,30}sponsorship',sentence,re.I):continue
+        if not re.search(r'visa sponsorship|immigration sponsorship|sponsorship.{0,30}(?:will not be|is not|not) (?:provided|offered|available|supported)|sponsor.{0,40}(?:visa|H[ -]?1[ -]?B)|(?:visa|immigration|work authori[sz]ation|employment).{0,60}sponsor|(?:offer|provide|require|need|eligible for|without|no).{0,30}sponsorship',sentence,re.I):continue
         if re.search(r'event|conference|brand|sports|marketing',sentence,re.I) and not re.search(r'visa|immigration|work authori[sz]ation|H[ -]?1[ -]?B',sentence,re.I):continue
         negative=bool(re.search(r'no (?:visa |immigration |employment )?sponsorship|(?:visa |immigration |employment )?sponsorship.{0,30}(?:will not be|is not|not) (?:provided|offered|available|supported)|without.{0,25}sponsorship|not.{0,40}sponsor|unable.{0,40}sponsor|cannot.{0,40}sponsor|do not|will not|sponsorship.{0,35}(?:not available|not offered|not provided|unavailable|not possible)',sentence,re.I))
         positive=bool(re.search(r'(?:offer|provide|available|support|eligible for).{0,40}sponsor|sponsor.{0,20}(?:available|provided)',sentence,re.I))

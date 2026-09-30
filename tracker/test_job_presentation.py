@@ -38,8 +38,9 @@ class JobPresentationIntegrationTests(TestCase):
     def test_description_experience_excluded_even_with_unstated_seniority(self):
         senior = self.make_job("senior", "What you'll need:\n6+ years of experience, ideally in financial services.")
         junior = self.make_job("junior", "Qualifications:\n1-2 years of experience.")
-        for level in ["entry", "intern"]:
-            self.assertEqual(list(filtered({"role": "analyst", "level": level, "include_unstated": True})), [junior])
+        self.assertEqual(list(filtered({"role": "analyst", "level": "entry", "include_unstated": True})), [junior])
+        # A JD stating entry-level experience is not an unstated internship.
+        self.assertEqual(list(filtered({"role": "analyst", "level": "intern", "include_unstated": True})), [])
         self.assertEqual(filtered({"role": "analyst"}).count(), 2)
         response = self.client.get(f"/jobs/{senior.pk}/")
         self.assertContains(response, "6+ years")
@@ -59,3 +60,4 @@ class JobPresentationIntegrationTests(TestCase):
         response = self.client.get(f"/jobs/{job.pk}/")
         self.assertNotContains(response, "<script>")
         self.assertContains(response, "&lt;script&gt;")
+
