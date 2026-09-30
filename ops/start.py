@@ -14,7 +14,7 @@ def main():
     if os.getenv('DEBUG','0')!='1':subprocess.run([sys.executable,'manage.py','check','--deploy','--fail-level','WARNING'],check=True)
     subprocess.run([sys.executable,'manage.py','migrate','--noinput'],check=True)
     subprocess.run([sys.executable,'manage.py','housekeeping'],check=True)
-    try:subprocess.run([sys.executable,'manage.py','sync_jobs'],check=False,timeout=120)
+    try:subprocess.run([sys.executable,'manage.py','sync_jobs'],check=False,timeout=180)
     except subprocess.TimeoutExpired:print('Job feed refresh timed out; serving cached data.',flush=True)
     args=['gunicorn','config.wsgi:application','--bind','0.0.0.0:'+bounded('PORT',10000,65535),'--workers',bounded('WEB_CONCURRENCY',1,8),'--threads',bounded('WEB_THREADS',4,8),'--timeout','60','--graceful-timeout','30','--max-requests','500','--max-requests-jitter','50','--access-logfile','/dev/null']
     os.execvp(args[0],args)

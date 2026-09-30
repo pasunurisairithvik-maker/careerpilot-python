@@ -25,6 +25,7 @@ class JobFilter(forms.Form):
     company=forms.CharField(required=False,max_length=100)
     role=forms.ChoiceField(required=False,choices=[('','All roles')]+ROLES)
     level=forms.ChoiceField(required=False,choices=[('','Any experience'),('intern','Internship'),('entry','Entry / graduate'),('senior','Senior / lead'),('unspecified','Not stated in title')])
+    include_unstated=forms.BooleanField(required=False,label='Include listings with unstated seniority')
     workplace=forms.ChoiceField(required=False,choices=[('','Any workplace'),('remote','Remote stated in location'),('hybrid','Hybrid stated in location'),('unspecified','Not stated')])
     provider=forms.ChoiceField(required=False,choices=[('','All sources'),('greenhouse','Greenhouse'),('lever','Lever')])
     authorization=forms.ChoiceField(required=False,choices=[('','Any authorization')]+AUTH,label='Listing mentions status')
@@ -43,7 +44,9 @@ def filtered(data):
         if term.strip():qs=qs.exclude(Q(title__icontains=term.strip())|Q(description__icontains=term.strip()))
     for field in ['company','location']:
         if data.get(field):qs=qs.filter(**{field+'__icontains':data[field]})
-    for field in ['role','level','workplace','provider']:
+    if data.get('level'):
+        qs=qs.filter(Q(level=data['level'])|Q(level='unspecified')) if data.get('include_unstated') else qs.filter(level=data['level'])
+    for field in ['role','workplace','provider']:
         if data.get(field):qs=qs.filter(**{field:data[field]})
     if data.get('authorization'):
         field='evidence__'+data['authorization']+'__state'
@@ -79,9 +82,26 @@ def jobs(request):
             label=dict(form.fields[key].choices).get(value,value) if hasattr(form.fields[key],'choices') else 'Enabled' if value is True else value
             chips.append({'label':f'{form.fields[key].label or key.replace("_"," ").title()}: {label}','query':reduced.urlencode()})
     broader=query.copy();broader['include_unknown']='on'
-    terms=' '.join(str(data.get(k) or '') for k in ['q','location']).strip()
-    external=[{'name':name,'url':base+urlencode({param:terms})} for name,base,param in [('LinkedIn','https://www.linkedin.com/jobs/search/?','keywords'),('Indeed','https://www.indeed.com/jobs?','q'),('Dice','https://www.dice.com/jobs?','q'),('ZipRecruiter','https://www.ziprecruiter.com/jobs-search?','search')]]
-    return render(request,'jobs.html',{'chips':chips,'broader':broader.urlencode(),'external':external,'available':Job.objects.filter(active=True).count(),'form':form,'page':page,'query':query.urlencode(),'saved':saved,'feeds':FeedState.objects.exclude(key='refresh'),'total':pager.count,'sources':SOURCES})
+    suggestions=[]
+    if valid and pager.count<5:
+        variants=[]
+        if data.get('authorization') and not data.get('include_unknown'):
+            v=query.copy();v['include_unknown']='on';variants.append(('Include unstated authorization',v))
+        if data.get('level') and not data.get('include_unstated'):
+            v=query.copy();v['include_unstated']='on'
+            if data.get('authorization'):v['include_unknown']='on'
+            variants.append(('Explore roles with unstated seniority and authorization',v))
+        if data.get('role'):
+            variants.append(('Browse all '+dict(ROLES).get(data['role'],data['role'])+' roles',{'role':data['role']}))
+        for label,params in variants:
+            candidate=JobFilter(params)
+            if candidate.is_valid():
+                count=filtered(candidate.cleaned_data).count()
+                if count>pager.count:suggestions.append({'label':label,'count':count,'query':urlencode(params)})
+    role_terms={'developer':'software engineer','analyst':'analyst','qa':'QA tester','data':'data science','support':'technical support','product':'product manager'}
+    terms=' '.join(x for x in [data.get('q',''),role_terms.get(data.get('role'),''),data.get('company','')] if x).strip()
+    external=[{'name':name,'url':base+urlencode({param:terms,location_param:data.get('location','')})} for name,base,param,location_param in [('LinkedIn','https://www.linkedin.com/jobs/search/?','keywords','location'),('Indeed','https://www.indeed.com/jobs?','q','l'),('Dice','https://www.dice.com/jobs?','q','location'),('ZipRecruiter','https://www.ziprecruiter.com/jobs-search?','search','location')]]
+    return render(request,'jobs.html',{'suggestions':suggestions,'chips':chips,'broader':broader.urlencode(),'external':external,'available':Job.objects.filter(active=True).count(),'form':form,'page':page,'query':query.urlencode(),'saved':saved,'feeds':FeedState.objects.exclude(key='refresh'),'total':pager.count,'sources':SOURCES})
 def job(request,pk):
     item=get_object_or_404(Job,pk=pk)
     match=analyse(item.description,request.user.profile.resume) if request.user.is_authenticated else None

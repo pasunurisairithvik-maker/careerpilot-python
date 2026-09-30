@@ -137,3 +137,35 @@ class DiscoveryTests(TestCase):
             fetch.assert_called_once_with('greenhouse','newboard')
             self.assertTrue(refresh().get('busy'))
         self.job.refresh_from_db();self.assertTrue(self.job.active)
+
+    def test_low_result_suggestions_are_counted_and_do_not_change_search(self):
+        self.job.role='analyst';self.job.level='unspecified';self.job.evidence=evidence('SQL');self.job.save()
+        response=self.client.get('/jobs/?role=analyst&level=entry&authorization=opt')
+        self.assertEqual(response.context['total'],0)
+        alternatives=response.context['suggestions']
+        self.assertTrue(any(item['count']==1 and 'include_unstated=on' in item['query'] and 'include_unknown=on' in item['query'] for item in alternatives))
+        self.assertContains(response,'not confirmation of suitability')
+        form=JobFilter({'role':'analyst','level':'entry','authorization':'opt','include_unstated':'on','include_unknown':'on'})
+        self.assertTrue(form.is_valid());self.assertEqual(filtered(form.cleaned_data).count(),1)
+        self.job.level='senior';self.job.save()
+        self.assertEqual(filtered(form.cleaned_data).count(),0)
+        form=JobFilter({'level':'entry','include_unstated':'on','authorization':'opt'})
+        self.assertTrue(form.is_valid());self.assertEqual(filtered(form.cleaned_data).count(),0)
+    def test_all_discovery_sources_are_allowlisted_and_unique(self):
+        from .discovery import SOURCES
+        self.assertEqual(len(SOURCES),20)
+        self.assertEqual(len({(p,b) for p,b,_ in SOURCES}),20)
+        for provider,board,company in SOURCES:
+            self.assertIn(provider,['greenhouse','lever'])
+            self.assertRegex(board,r'^[a-z0-9]+$')
+            self.assertTrue(company)
+
+    def test_external_shortcuts_include_role_location_without_private_data(self):
+        from urllib.parse import urlsplit,parse_qs
+        response=self.client.get('/jobs/?role=analyst&location=Chicago&authorization=opt')
+        for site in response.context['external']:
+            params=parse_qs(urlsplit(site['url']).query)
+            self.assertTrue(any('analyst' in values for values in params.values()))
+            self.assertTrue(any('Chicago' in values for values in params.values()))
+            self.assertNotIn('authorization',params)
+            self.assertNotIn('resume',params)

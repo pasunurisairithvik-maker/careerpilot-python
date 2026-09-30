@@ -3,7 +3,7 @@
 A zero-budget Python job-discovery and private career workspace. Live: https://careerpilot-python-7twk.onrender.com/
 
 ## What works
-- Unified real openings from ten curated employer boards: Stripe, Cloudflare, Datadog, MongoDB, Figma, Toast, GitLab and HubSpot (Greenhouse); Palantir and Spotify (Lever).
+- Unified real openings from twenty curated employer boards: Stripe, Cloudflare, Datadog, MongoDB, Figma, Toast, GitLab HubSpot, Airbnb, Reddit, Dropbox, Twilio, Discord, Duolingo, Pinterest, Roblox, Affirm and SoFi (Greenhouse); Palantir and Spotify (Lever).
 - Keyword, location, company, developer/analyst/QA/data/support/product role, title-based experience, source, workplace, salary-present, freshness and first-seen filters. Original employer links and source timestamps.
 - OPT, STEM OPT, H-1B, green-card/permanent-resident and citizen **listing mention** filters, exact evidence, exclusions, mixed/unknown states and separate sponsorship-statement filters. They do not certify candidate eligibility or legal compliance.
 - Duplicate canonical application URL suppression; successfully removed records marked closed; 30-day closed public-cache retention; failures preserve cached jobs.
@@ -39,3 +39,5 @@ See docs/OPERATIONS.md and docs/RELEASE.md for release verification and limits. 
 
 ### Discovery refinements
 Title-only search, comma-separated excluded words, company/title sorting and removable active-filter chips help refine results. Empty states report cached active listings and offer an explicit unknown-authorization expansion without claiming eligibility. LinkedIn, Indeed, Dice and ZipRecruiter links are external search shortcuts, not imported feeds or partner integrations. Search terms are sent to those sites only when a user opens the link.
+
+Low-result searches now offer counted alternatives. The optional unstated-seniority expansion includes title-unclassified jobs alongside the chosen level; it does not assert that those jobs are entry level. Authorization remains independent and unknown status never means accepted. Startup feed synchronization is bounded to 180 seconds and failures continue to preserve the cache.
