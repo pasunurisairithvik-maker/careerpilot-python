@@ -7,7 +7,7 @@ from tracker.job_traits import level as jd_level,workplace as jd_workplace,salar
 class Command(BaseCommand):
     help='Recompute public cached listing labels once for the current normalization version.'
     def handle(self,*args,**options):
-        marker,_=FeedState.objects.get_or_create(key='normalization-v4')
+        marker,_=FeedState.objects.get_or_create(key='normalization-v5')
         if marker.success:return
         batch=[];count=0;last_pk=marker.count;visited=0
         for job in Job.objects.filter(pk__gt=marker.count).only('id','title','description','role','level','evidence','location','workplace','salary').order_by('pk').iterator(chunk_size=100):

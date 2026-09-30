@@ -22,7 +22,7 @@ class ScheduledRefreshTests(TestCase):
         state=FeedState.objects.create(key='refresh',attempted=timezone.now()-timedelta(hours=2))
         from .discovery import SOURCES
         FeedState.objects.bulk_create([FeedState(key=f'{p}:{b}') for p,b,_ in SOURCES])
-        FeedState.objects.create(key='normalization-v4',success=timezone.now())
+        FeedState.objects.create(key='normalization-v5',success=timezone.now())
         with patch('tracker.auto_refresh.threading.Thread') as thread:
             self.assertFalse(maybe_refresh())
             thread.assert_not_called()

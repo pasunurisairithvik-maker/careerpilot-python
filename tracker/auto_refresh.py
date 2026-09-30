@@ -29,7 +29,7 @@ def maybe_refresh():
     state = FeedState.objects.filter(key='refresh').first()
     if state and state.attempted and timezone.now()-state.attempted < timedelta(minutes=170):
         known=set(FeedState.objects.values_list('key',flat=True))
-        normalized=FeedState.objects.filter(key='normalization-v4',success__isnull=False).exists()
+        normalized=FeedState.objects.filter(key='normalization-v5',success__isnull=False).exists()
         if normalized and all(f'{provider}:{board}' in known for provider,board,_ in SOURCES):return False
     if not _guard.acquire(blocking=False):
         return False

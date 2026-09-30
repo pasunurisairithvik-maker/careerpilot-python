@@ -18,9 +18,12 @@ def workplace(location,description,metadata=''):
  text='\n'.join([location or '',description or ''])
  patterns={
   'hybrid':r'\bhybrid (?:role|position|work|working|model|schedule|arrangement|office)\b|\b\d+ days? (?:per week |a week )?(?:in (?:the )?office|on[- ]?site)',
-  'remote':r'\b(?:fully remote|remote (?:role|position|job|work|within|from|in|across)|work (?:fully )?remotely|work from home)\b',
+  'remote':r'\b(?:fully remote (?:role|position|job|work)|remote (?:role|position|job|work|within|from|in|across)|work (?:fully )?remotely|work from home)\b',
   'onsite':r'\b(?:on[- ]?site (?:role|position|work|job)|office[- ]based|in[- ]person (?:role|position|work)|work (?:from|in) (?:our|the) office)\b',
  }
+ # Office attendance requirements take precedence over general remote benefits.
+ for line in text.splitlines():
+  if re.search(r'\b(?:one|two|three|four|five|[1-5]) (?:coordinated )?days?.{0,35}(?:a |per )week',line,re.I) and re.search(r'\b(?:office|in-person)\b',line,re.I):return 'hybrid',line.strip()[:500]
  for kind,pattern in patterns.items():
   for line in text.splitlines():
    if re.search(pattern,line,re.I) and not re.search(r'(?:not|no|cannot|unable).{0,25}(?:remote|hybrid)|(?:remote|hybrid).{0,25}(?:not available|not permitted|not supported)',line,re.I):return kind,line.strip()[:500]
