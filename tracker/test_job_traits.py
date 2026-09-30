@@ -20,3 +20,17 @@ class DescriptionTraitsTests(SimpleTestCase):
   for text in ['No sponsorship provided.','Visa sponsorship is not provided.','Sponsorship will not be offered.']:
    self.assertEqual(evidence(text)['sponsorship']['state'],'no',text)
   self.assertEqual(evidence('Build Python applications.')['sponsorship']['state'],'unknown')
+
+from django.test import TestCase
+from django.utils import timezone
+from .models import Job
+from .job_views import filtered
+class JDTraitFilterTests(TestCase):
+ def test_old_cache_uses_current_description_rules(self):
+  item=Job.objects.create(source_key='synthetic:traits',provider='greenhouse',board='synthetic',company='Synthetic',title='Data Analyst',location='Chicago',description='Requirements: 3 years of experience.\nThis is a hybrid position in Chicago.\nNo sponsorship provided.\nAnnual base salary: $80,000–$95,000.',url='https://example.com/traits',role='analyst',level='unspecified',workplace='unspecified',salary='',evidence=evidence('Old cache'),checked=timezone.now())
+  self.assertEqual(list(filtered({'level':'mid','workplace':'hybrid','sponsorship':'no','salary':True})),[item])
+  for wrong in [{'level':'entry'},{'workplace':'remote'},{'sponsorship':'yes'}]:self.assertEqual(filtered(wrong).count(),0)
+ def test_silence_not_excluded_as_no_sponsorship(self):
+  Job.objects.create(source_key='synthetic:silence',provider='greenhouse',board='synthetic',company='Synthetic',title='Developer',description='Build Python applications.',url='https://example.com/silent',role='developer',level='unspecified',workplace='unspecified',checked=timezone.now())
+  self.assertEqual(filtered({'sponsorship':'no'}).count(),0)
+  self.assertEqual(filtered({'sponsorship':'unknown'}).count(),1)
