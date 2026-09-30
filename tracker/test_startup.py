@@ -17,4 +17,5 @@ class StartupBoundTests(SimpleTestCase):
                 main()
             self.assertEqual(execute.call_args.args[0], "gunicorn")
         self.assertTrue(any("migrate" in args and kwargs.get("check") for args,kwargs in calls))
-        self.assertTrue(any("sync_jobs" in args and kwargs.get("timeout") == 180 for args,kwargs in calls))
+        self.assertFalse(any("sync_jobs" in args or "reclassify_jobs" in args for args,kwargs in calls))
+
