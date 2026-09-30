@@ -11,6 +11,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404,render,redirect
 from django.utils import timezone
 from django.views.decorators.http import require_POST
+from .job_traits import level as jd_level,workplace as jd_workplace,salary as jd_salary
 from .models import Job,FeedState,SavedSearch,Application,ResumeDraft
 from .discovery import ROLES,AUTH,SOURCES,refresh
 from .matching import analyse
@@ -25,14 +26,14 @@ class JobFilter(forms.Form):
     location=forms.CharField(required=False,max_length=100)
     company=forms.CharField(required=False,max_length=100)
     role=forms.ChoiceField(required=False,choices=[('','All roles')]+ROLES)
-    level=forms.ChoiceField(required=False,choices=[('','Any experience'),('intern','Internship'),('entry','Entry / graduate'),('senior','Senior / lead'),('unspecified','Not stated in title')])
+    level=forms.ChoiceField(required=False,choices=[('','Any experience'),('intern','Internship'),('entry','Entry / graduate'),('mid','Mid-level'),('senior','Senior / lead'),('management','Management / leadership'),('unspecified','Experience not stated')])
     include_unstated=forms.BooleanField(required=False,label='Include listings with unstated seniority')
-    workplace=forms.ChoiceField(required=False,choices=[('','Any workplace'),('remote','Remote stated in location'),('hybrid','Hybrid stated in location'),('unspecified','Not stated')])
+    workplace=forms.ChoiceField(required=False,choices=[('','Any workplace'),('remote','Remote'),('hybrid','Hybrid'),('onsite','Onsite'),('unspecified','Work arrangement not stated')])
     provider=forms.ChoiceField(required=False,choices=[('','All sources'),('greenhouse','Greenhouse'),('lever','Lever')])
     authorization=forms.ChoiceField(required=False,choices=[('','Any authorization')]+AUTH,label='Listing mentions status')
     include_unknown=forms.BooleanField(required=False,label='Include listings that do not mention this status')
     sponsorship=forms.ChoiceField(required=False,choices=[('','Any sponsorship'),('yes','Employer states sponsorship support'),('no','Employer states no sponsorship'),('unknown','Not confirmed in listing'),('mixed','Conflicting statements')])
-    salary=forms.BooleanField(required=False,label='Salary supplied by source')
+    salary=forms.BooleanField(required=False,label='Only jobs with published pay')
     days=forms.ChoiceField(required=False,choices=[('','Any first-seen date'),('1','First seen in 24 hours'),('7','First seen in 7 days'),('30','First seen in 30 days')])
     fresh=forms.BooleanField(required=False,label='Only feeds checked in the last 24 hours')
     closed=forms.BooleanField(required=False,label='Include removed / closed listings')
@@ -45,26 +46,30 @@ def filtered(data):
         if term.strip():qs=qs.exclude(Q(title__icontains=term.strip())|Q(description__icontains=term.strip()))
     for field in ['company','location']:
         if data.get(field):qs=qs.filter(**{field+'__icontains':data[field]})
-    if data.get('level'):
-        qs=qs.filter(Q(level=data['level'])|Q(level='unspecified')) if data.get('include_unstated') else qs.filter(level=data['level'])
-    for field in ['role','workplace','provider']:
+    for field in ['role','provider']:
         if data.get(field):qs=qs.filter(**{field:data[field]})
     if data.get('authorization'):
         field='evidence__'+data['authorization']+'__state'
         states=['stated','mentioned','mixed']+(['unknown'] if data.get('include_unknown') else [])
         qs=qs.filter(**{field+'__in':states})
     if data.get('sponsorship'):qs=qs.filter(evidence__sponsorship__state=data['sponsorship'])
-    if data.get('salary'):qs=qs.exclude(salary='')
     if data.get('days'):qs=qs.filter(first_seen__gte=timezone.now()-timedelta(days=int(data['days'])))
     if data.get('fresh'):qs=qs.filter(checked__gte=timezone.now()-timedelta(hours=24))
     # Same canonical application URL represents the same listing; don't merge distinct requisitions merely by title.
     seen=set();ids=[]
-    check_experience=data.get('level') in ['entry','intern']
-    columns=['pk','url']+(['description'] if check_experience else [])
+    check_traits=bool(data.get('level') or data.get('workplace') or data.get('salary'))
+    columns=['pk','url']+(['title','description','location','workplace','salary'] if check_traits else [])
     for row in qs.order_by('-active','-first_seen','pk').values_list(*columns).iterator(chunk_size=100):
         pk,url=row[:2]
-        experience=experience_requirement(row[2]) if check_experience else None
-        if experience and experience['years']>2:continue
+        if check_traits:
+            title,description,location,workplace,pay=row[2:]
+            level=jd_level(title,description)
+            if data.get('level') and level!=data['level'] and not (data.get('include_unstated') and level=='unspecified'):continue
+            arrangement,_=jd_workplace(location,description,workplace)
+            if data.get('workplace') and arrangement!=data['workplace']:continue
+            if data.get('salary') and not jd_salary(description,pay):continue
+            experience=experience_requirement(description)
+            if data.get('level') in ['entry','intern'] and experience and experience['years']>2:continue
         if url not in seen:seen.add(url);ids.append(pk)
     qs=qs.filter(pk__in=ids)
     return qs.order_by('company','title','pk') if data.get('sort')=='company' else qs.order_by('title','pk') if data.get('sort')=='title' else qs
@@ -76,6 +81,9 @@ def jobs(request):
     pager=Paginator(qs,20);page=pager.get_page(request.GET.get('page'))
     for listing in page:
         listing.experience=experience_requirement(listing.description)
+        listing.level=jd_level(listing.title,listing.description)
+        listing.workplace,listing.workplace_quote=jd_workplace(listing.location,listing.description,listing.workplace)
+        listing.salary=jd_salary(listing.description,listing.salary)
     query=request.GET.copy();query.pop('page',None)
     saved=[]
     if request.user.is_authenticated:
@@ -113,6 +121,9 @@ def jobs(request):
 def job(request,pk):
     item=get_object_or_404(Job,pk=pk)
     match=analyse(item.description,request.user.profile.resume) if request.user.is_authenticated else None
+    item.level=jd_level(item.title,item.description)
+    item.workplace,item.workplace_quote=jd_workplace(item.location,item.description,item.workplace)
+    item.salary=jd_salary(item.description,item.salary)
     return render(request,'job.html',{'job':item,'match':match,'stale':timezone.now()-item.checked>timedelta(hours=24),'auth_labels':AUTH,'experience':experience_requirement(item.description),'sections':description_sections(item.description),'authorization_rows':authorization_rows(item.evidence),'has_resume':bool(request.user.is_authenticated and request.user.profile.resume.strip())})
 @login_required
 @require_POST

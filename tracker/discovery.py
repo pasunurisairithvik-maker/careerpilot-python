@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
-SOURCES=[('greenhouse','stripe','Stripe'),('greenhouse','cloudflare','Cloudflare'),('greenhouse','datadog','Datadog'),('lever','palantir','Palantir'),('lever','spotify','Spotify'),('greenhouse','mongodb','MongoDB'),('greenhouse','figma','Figma'),('greenhouse','toast','Toast'),('greenhouse','gitlab','GitLab'),('greenhouse','hubspotjobs','HubSpot'),('greenhouse','airbnb','Airbnb'),('greenhouse','reddit','Reddit'),('greenhouse','dropbox','Dropbox'),('greenhouse','twilio','Twilio'),('greenhouse','discord','Discord'),('greenhouse','duolingo','Duolingo'),('greenhouse','pinterest','Pinterest'),('greenhouse','roblox','Roblox'),('greenhouse','affirm','Affirm'),('greenhouse','sofi','SoFi'),('greenhouse','asana','Asana'),('greenhouse','zscaler','Zscaler'),('greenhouse','okta','Okta'),('greenhouse','rubrik','Rubrik'),('greenhouse','gusto','Gusto'),('greenhouse','brex','Brex'),('greenhouse','elastic','Elastic')]
+SOURCES=[('greenhouse','stripe','Stripe'),('greenhouse','cloudflare','Cloudflare'),('greenhouse','datadog','Datadog'),('lever','palantir','Palantir'),('lever','spotify','Spotify'),('greenhouse','mongodb','MongoDB'),('greenhouse','figma','Figma'),('greenhouse','toast','Toast'),('greenhouse','gitlab','GitLab'),('greenhouse','hubspotjobs','HubSpot'),('greenhouse','airbnb','Airbnb'),('greenhouse','reddit','Reddit'),('greenhouse','dropbox','Dropbox'),('greenhouse','twilio','Twilio'),('greenhouse','discord','Discord'),('greenhouse','duolingo','Duolingo'),('greenhouse','pinterest','Pinterest'),('greenhouse','roblox','Roblox'),('greenhouse','affirm','Affirm'),('greenhouse','sofi','SoFi'),('greenhouse','asana','Asana'),('greenhouse','zscaler','Zscaler'),('greenhouse','okta','Okta'),('greenhouse','rubrik','Rubrik'),('greenhouse','gusto','Gusto'),('greenhouse','brex','Brex'),('greenhouse','elastic','Elastic'),('greenhouse','samsara','Samsara'),('greenhouse','verkada','Verkada'),('greenhouse','scaleai','Scale AI'),('greenhouse','doordashusa','DoorDash'),('greenhouse','lyft','Lyft'),('greenhouse','robinhood','Robinhood'),('greenhouse','chime','Chime'),('greenhouse','fivetran','Fivetran')]
 ROLES=[("developer","Software development"),("analyst","Data / business analyst"),("qa","QA / testing"),("data","Data engineering / science / ML"),("support","IT / technical support"),("product","Product / project / program"),("security","Cybersecurity"),("cloud","Cloud / DevOps / SRE"),("design","Design / UX"),("finance","Finance / accounting"),("hr","HR / recruiting"),("sales","Sales / customer success"),("marketing","Marketing"),("operations","Operations / supply chain"),("mainframe","Mainframe / COBOL"),("other","Other")]
 AUTH=[('opt','OPT'),('stem_opt','STEM OPT'),('h1b','H-1B'),('green_card','Green card / permanent resident'),('citizen','US citizen')]
 class Plain(HTMLParser):
@@ -57,7 +57,7 @@ def evidence(text):
     for sentence in sentences:
         if not re.search(r'visa sponsorship|immigration sponsorship|sponsor.{0,40}(?:visa|H[ -]?1[ -]?B)|(?:visa|immigration|work authori[sz]ation|employment).{0,60}sponsor|(?:offer|provide|require|need|eligible for|without|no).{0,30}sponsorship',sentence,re.I):continue
         if re.search(r'event|conference|brand|sports|marketing',sentence,re.I) and not re.search(r'visa|immigration|work authori[sz]ation|H[ -]?1[ -]?B',sentence,re.I):continue
-        negative=bool(re.search(r'no sponsorship|without.{0,25}sponsorship|not.{0,40}sponsor|unable.{0,40}sponsor|cannot.{0,40}sponsor|do not|will not|sponsorship.{0,35}(?:not available|not offered|not provided|unavailable|not possible)',sentence,re.I))
+        negative=bool(re.search(r'no (?:visa |immigration |employment )?sponsorship|(?:visa |immigration |employment )?sponsorship.{0,30}(?:will not be|is not|not) (?:provided|offered|available|supported)|without.{0,25}sponsorship|not.{0,40}sponsor|unable.{0,40}sponsor|cannot.{0,40}sponsor|do not|will not|sponsorship.{0,35}(?:not available|not offered|not provided|unavailable|not possible)',sentence,re.I))
         positive=bool(re.search(r'(?:offer|provide|available|support|eligible for).{0,40}sponsor|sponsor.{0,20}(?:available|provided)',sentence,re.I))
         sponsor.append(('no' if negative else 'yes' if positive else 'unknown',sentence.strip()[:700]))
     states={x[0] for x in sponsor};result['sponsorship']={'state':next(iter(states)) if len(states)==1 else 'mixed' if states else 'unknown','evidence':[x[1] for x in sponsor[:3]]}
@@ -97,7 +97,11 @@ def normalize(provider,slug,company,row):
     salary_range=row.get('salaryRange')
     if isinstance(salary_range,dict):salary=(salary+'\n'+json.dumps(salary_range,ensure_ascii=False))[:1000]
     description=description[:20000]
-    return dict(source_key=f'{provider}:{slug}:{row["id"]}',provider=provider,board=slug,company=company,title=title,location=location,description=description,url=url,role=classify(title),level=seniority(title),workplace=remote,salary=salary,evidence=evidence(description),source_updated=str(row.get('updated_at') or '')[:50])
+    from .job_traits import level,workplace as workplace_trait,salary as salary_trait
+    remote,workplace_quote=workplace_trait(location,description,workplace)
+    salary=salary_trait(description,salary)
+    statements=evidence(description);statements['workplace']={'state':remote,'evidence':[workplace_quote]}
+    return dict(source_key=f'{provider}:{slug}:{row["id"]}',provider=provider,board=slug,company=company,title=title,location=location,description=description,url=url,role=classify(title),level=level(title,description),workplace=remote,salary=salary,evidence=statements,source_updated=str(row.get('updated_at') or '')[:50])
 def refresh(force=False, min_interval=30):
     from .models import Job,FeedState
     now=timezone.now()
