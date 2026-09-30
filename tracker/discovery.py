@@ -40,7 +40,8 @@ def evidence(text):
     result={}
     patterns={'opt':r'\bOPT\b|optional practical training','stem_opt':r'STEM[ -]+OPT','h1b':r'H[ -]?1[ -]?B','green_card':r'green card|permanent residen(?:t|ce|cy)','citizen':r'(?:U\.?S\.?|United States) citizen(?:ship)?'}
     # Extract sentence-sized context, never infer acceptance from a generic mention.
-    sentences=re.split(r'(?<=[.!?])\s+|\n',text)
+    # Do not split the country abbreviation away from its citizenship statement.
+    sentences=re.split(r'(?<!U\.S\.)(?<=[.!?])\s+|\n',text,flags=re.I)
     for key,pattern in patterns.items():
         states=[];quotes=[]
         for sentence in sentences:
@@ -56,7 +57,7 @@ def evidence(text):
     for sentence in sentences:
         if not re.search(r'visa sponsorship|immigration sponsorship|sponsor.{0,40}(?:visa|H[ -]?1[ -]?B)|(?:visa|immigration|work authori[sz]ation|employment).{0,60}sponsor|(?:offer|provide|require|need|eligible for|without|no).{0,30}sponsorship',sentence,re.I):continue
         if re.search(r'event|conference|brand|sports|marketing',sentence,re.I) and not re.search(r'visa|immigration|work authori[sz]ation|H[ -]?1[ -]?B',sentence,re.I):continue
-        negative=bool(re.search(r'no sponsorship|without.{0,25}sponsorship|not.{0,40}sponsor|unable.{0,40}sponsor|cannot.{0,40}sponsor|do not|will not',sentence,re.I))
+        negative=bool(re.search(r'no sponsorship|without.{0,25}sponsorship|not.{0,40}sponsor|unable.{0,40}sponsor|cannot.{0,40}sponsor|do not|will not|sponsorship.{0,35}(?:not available|not offered|not provided|unavailable|not possible)',sentence,re.I))
         positive=bool(re.search(r'(?:offer|provide|available|support|eligible for).{0,40}sponsor|sponsor.{0,20}(?:available|provided)',sentence,re.I))
         sponsor.append(('no' if negative else 'yes' if positive else 'unknown',sentence.strip()[:700]))
     states={x[0] for x in sponsor};result['sponsorship']={'state':next(iter(states)) if len(states)==1 else 'mixed' if states else 'unknown','evidence':[x[1] for x in sponsor[:3]]}

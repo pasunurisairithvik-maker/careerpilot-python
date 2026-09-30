@@ -5,6 +5,20 @@ from django.test import SimpleTestCase,TestCase
 from .discovery import classify,seniority,download,normalize
 
 class AuditRegressionTests(SimpleTestCase):
+    def test_negation_after_sponsorship_and_us_abbreviation(self):
+        from .discovery import evidence
+        for text in ['Visa sponsorship is not available.','Visa sponsorship is not offered for this role.']:
+            self.assertEqual(evidence(text)['sponsorship']['state'],'no')
+        for text in ['Must be a U.S. citizen.','U.S. citizenship is required.']:
+            self.assertNotEqual(evidence(text)['citizen']['state'],'unknown')
+
+    def test_written_experience_years_are_not_ignored(self):
+        from .job_presentation import experience_requirement
+        for text,years in [('Five years of professional experience required.',5),('At least three years of experience.',3),('One year of experience.',1)]:
+            result=experience_requirement(text)
+            self.assertEqual(result['years'],years)
+            self.assertIn(text.rstrip('.'),result['quote'])
+
     def test_abbreviations_and_title_word_boundaries(self):
         for title,role in [('SRE','cloud'),('Senior SRE','cloud'),('UX Researcher','design'),('UI Engineer','design')]:
             self.assertEqual(classify(title),role)

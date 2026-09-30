@@ -3,7 +3,7 @@ import re
 
 YEAR_REQUIREMENT = re.compile(
     r"\b(?:(?:at\s+least|minimum(?:\s+of)?|a\s+minimum\s+of)\s+)?"
-    r"(\d{1,2})\s*(?:\+|(?:-|–|—|to)\s*\d{1,2})?\s*"
+    r"(\d{1,2}|zero|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:\+|(?:-|–|—|to)\s*\d{1,2})?\s*"
     r"(?:years?|yrs?)\s*(?:of\s+)?(?:relevant\s+|professional\s+|related\s+|"
     r"hands[- ]on\s+|prior\s+|work\s+|industry\s+|practical\s+){0,3}experience\b",
     re.I,
@@ -14,11 +14,15 @@ def experience_requirement(text):
     matches = list(YEAR_REQUIREMENT.finditer(text or ""))
     if not matches:
         return None
-    values = [int(m.group(1)) for m in matches if int(m.group(1)) <= 40]
+    words=dict(zip(['zero','one','two','three','four','five','six','seven','eight','nine','ten'],range(11)))
+    def years(match):
+        value=match.group(1).lower()
+        return int(value) if value.isdigit() else words[value]
+    values = [years(m) for m in matches if years(m) <= 40]
     if not values:
         return None
     minimum = max(values)
-    match = next(m for m in matches if int(m.group(1)) == minimum)
+    match = next(m for m in matches if years(m) == minimum)
     start = max((text or "").rfind("\n", 0, match.start()), (text or "").rfind(".", 0, match.start())) + 1
     end = (text or "").find("\n", match.end())
     if end < 0:
