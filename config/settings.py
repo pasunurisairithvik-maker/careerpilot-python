@@ -14,7 +14,7 @@ MIDDLEWARE = ['config.observability.RequestTelemetry','django.middleware.securit
 ROOT_URLCONF = 'config.urls'
 TEMPLATES = [{'BACKEND':'django.template.backends.django.DjangoTemplates','DIRS':[BASE_DIR/'templates'],'APP_DIRS':True,'OPTIONS':{'context_processors':['django.template.context_processors.request','django.contrib.auth.context_processors.auth','django.contrib.messages.context_processors.messages']}}]
 WSGI_APPLICATION = 'config.wsgi.application'
-DATABASES = {'default':dj_database_url.config(default=f'sqlite:///{BASE_DIR / "local.sqlite3"}',conn_max_age=0,conn_health_checks=True)}
+DATABASES = {'default':dj_database_url.parse(os.getenv('DATABASE_URL') or f'sqlite:///{BASE_DIR / "local.sqlite3"}',conn_max_age=0,conn_health_checks=True)}
 host=DATABASES['default'].get('HOST','')
 # This small, bounded deployment uses direct Neon sessions for SQL timeouts.
 if host.endswith('.neon.tech') and host.split('.')[0].endswith('-pooler'):
