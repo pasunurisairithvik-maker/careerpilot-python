@@ -59,9 +59,12 @@ def filtered(data):
     if data.get('fresh'):qs=qs.filter(checked__gte=timezone.now()-timedelta(hours=24))
     # Same canonical application URL represents the same listing; don't merge distinct requisitions merely by title.
     seen=set();ids=[]
-    for pk,url,description in qs.order_by('-active','-first_seen','pk').values_list('pk','url','description').iterator(chunk_size=100):
-        experience=experience_requirement(description)
-        if data.get('level') in ['entry','intern'] and experience and experience['years']>2:continue
+    check_experience=data.get('level') in ['entry','intern']
+    columns=['pk','url']+(['description'] if check_experience else [])
+    for row in qs.order_by('-active','-first_seen','pk').values_list(*columns).iterator(chunk_size=100):
+        pk,url=row[:2]
+        experience=experience_requirement(row[2]) if check_experience else None
+        if experience and experience['years']>2:continue
         if url not in seen:seen.add(url);ids.append(pk)
     qs=qs.filter(pk__in=ids)
     return qs.order_by('company','title','pk') if data.get('sort')=='company' else qs.order_by('title','pk') if data.get('sort')=='title' else qs
@@ -70,7 +73,7 @@ def jobs(request):
     valid=not request.GET or form.is_valid()
     data=form.cleaned_data if request.GET and valid else {}
     qs=filtered(data) if valid else Job.objects.none()
-    pager=Paginator(qs.defer('evidence'),20);page=pager.get_page(request.GET.get('page'))
+    pager=Paginator(qs,20);page=pager.get_page(request.GET.get('page'))
     for listing in page:
         listing.experience=experience_requirement(listing.description)
     query=request.GET.copy();query.pop('page',None)

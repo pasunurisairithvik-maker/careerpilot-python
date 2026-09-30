@@ -1,5 +1,5 @@
 """Public-feed normalization and conservative listing evidence. No eligibility decisions."""
-import re,html,hashlib,json,urllib.request
+import re,html,hashlib,json,urllib.request,urllib.error,socket
 from html.parser import HTMLParser
 from urllib.parse import urlsplit,urlunsplit,parse_qsl,urlencode
 from concurrent.futures import ThreadPoolExecutor
@@ -27,14 +27,14 @@ def safe_url(value):
     return urlunsplit((p.scheme,p.netloc,p.path,urlencode([(k,v) for k,v in parse_qsl(p.query) if not k.lower().startswith('utm_')]),''))
 def classify(title):
     t=title.lower()
-    for role,pattern in [('mainframe',r'mainframe|cobol|z/os'),('security',r'cybersecurity|security engineer|security analyst|information security'),('cloud',r'devops|site reliability|\\bsre\\b|cloud engineer|platform engineer'),('design',r'designer|user experience|\\bux\\b|\\bui\\b'),('hr',r'human resources|recruiter|recruiting|people operations|hr analyst'),('finance',r'finance|financial|accountant|accounting|treasury|fp&a'),('sales',r'customer success|account executive|sales|business development'),('marketing',r'marketing|seo|content strategist'),('operations',r'supply chain|logistics|operations manager|operations coordinator'),('qa',r'\bqa\b|quality assurance|test engineer|sdet'),('data',r'data scientist|machine learning|research scientist|data engineer'),('analyst',r'analyst|analytics'),('support',r'help desk|technical support|it support|support engineer'),('developer',r'engineer|developer|programmer'),('product',r'product manager|project manager|program manager')]:
+    for role,pattern in [('mainframe',r'mainframe|cobol|z/os'),('security',r'cybersecurity|security engineer|security analyst|information security'),('cloud',r'devops|site reliability|\bsre\b|cloud engineer|platform engineer'),('design',r'designer|user experience|\bux\b|\bui\b'),('hr',r'human resources|recruiter|recruiting|people operations|hr analyst'),('finance',r'finance|financial|accountant|accounting|treasury|fp&a'),('sales',r'customer success|account executive|sales|business development'),('marketing',r'marketing|seo|content strategist'),('operations',r'supply chain|logistics|operations manager|operations coordinator'),('qa',r'\bqa\b|quality assurance|test engineer|sdet'),('data',r'data scientist|machine learning|research scientist|data engineer'),('analyst',r'analyst|analytics'),('support',r'help desk|technical support|it support|support engineer'),('developer',r'engineer|developer|programmer'),('product',r'product manager|project manager|program manager')]:
         if re.search(pattern,t):return role
     return 'other'
 def seniority(title):
     t=title.lower()
-    if re.search(r'intern|internship|co-op',t):return 'intern'
-    if re.search(r'senior|staff|principal|lead|director|manager',t):return 'senior'
-    if re.search(r'junior|graduate|entry|new grad|associate',t):return 'entry'
+    if re.search(r'\b(?:intern|internship|co-op)\b',t):return 'intern'
+    if re.search(r'\b(?:senior|staff|principal|lead|director|manager)\b',t):return 'senior'
+    if re.search(r'\b(?:junior|graduate|entry|new grad|associate)\b',t):return 'entry'
     return 'unspecified'
 def evidence(text):
     result={}
@@ -66,14 +66,23 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 def download(provider,slug):
     url=f'https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true' if provider=='greenhouse' else f'https://api.lever.co/v0/postings/{slug}?mode=json'
     req=urllib.request.Request(url,headers={'User-Agent':'CareerPilot/2.0 public-job-board-reader','Accept':'application/json'})
-    with urllib.request.build_opener(NoRedirect()).open(req,timeout=8) as r:raw=r.read(12000001)
+    # Retry transient transport failures once; never retry malformed content or redirects.
+    for attempt in range(2):
+        try:
+            with urllib.request.build_opener(NoRedirect()).open(req,timeout=12) as r:raw=r.read(12000001)
+            break
+        except urllib.error.HTTPError as e:
+            if attempt or e.code not in [429,502,503,504]:raise
+        except (TimeoutError,socket.timeout,urllib.error.URLError):
+            if attempt:raise
     if len(raw)>12000000:raise ValueError('Feed exceeds configured bound')
     data=json.loads(raw);rows=data.get('jobs') if provider=='greenhouse' and isinstance(data,dict) else data
     if not isinstance(rows,list) or len(rows)>1000:raise ValueError('Invalid or oversized feed')
     return rows
 def normalize(provider,slug,company,row):
     if not isinstance(row,dict) or not row.get('id'):raise ValueError('Invalid posting')
-    title=str(row.get('title') if provider=='greenhouse' else row.get('text') or '').strip()[:150]
+    raw_title=row.get('title') if provider=='greenhouse' else row.get('text')
+    title=raw_title.strip()[:150] if isinstance(raw_title,str) else ''
     if not title:raise ValueError('Missing title')
     categories=row.get('categories') or {}
     location=str((row.get('location') or {}).get('name','') if provider=='greenhouse' else categories.get('location',''))[:200]
