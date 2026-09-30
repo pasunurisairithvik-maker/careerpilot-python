@@ -1,4 +1,5 @@
 """Real Chromium workflows against disposable localhost data only."""
+from concurrent.futures import ThreadPoolExecutor
 import os,sys,tempfile,subprocess,time,urllib.request,json
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
@@ -13,6 +14,8 @@ with tempfile.TemporaryDirectory(prefix='careerpilot-browser-') as tmp:
  from django.contrib.auth.models import User
  from tracker.models import Job,Application,Profile
  from tracker.discovery import evidence
+ def db(fn):
+  with ThreadPoolExecutor(max_workers=1) as pool:return pool.submit(fn).result()
  call_command('migrate',verbosity=0)
  call_command('collectstatic',interactive=False,verbosity=0)
  desc='Responsibilities\nAnalyze data using SQL and Python.\nRequirements\nZero to two years of experience.'
@@ -45,16 +48,16 @@ with tempfile.TemporaryDirectory(prefix='careerpilot-browser-') as tmp:
     go('/dashboard/');go('/applications/new/')
     for name,value in {'company':'Synthetic Private Company','role':'QA Analyst','description':'SQL Python testing','requirements':'SQL\nPython','notes':'Private fixture','next_step':'Practice interview','due':'2026-12-01'}.items():page.locator('[name='+name+']').fill(value)
     page.get_by_role('button',name='Save application').click()
-    item=Application.objects.get(owner__username=username,company='Synthetic Private Company');detail='/applications/'+str(item.pk)+'/'
+    item=db(lambda: Application.objects.get(owner__username=username,company='Synthetic Private Company'));detail='/applications/'+str(item.pk)+'/'
     go(detail+'edit/');page.locator('[name=stage]').select_option('interview');page.get_by_role('button',name='Save application').click()
-    item.refresh_from_db();assert item.stage=='interview'
+    db(item.refresh_from_db);assert item.stage=='interview'
     go('/resume/');page.locator('[name=resume_file]').set_input_files({'name':'resume.txt','mimeType':'text/plain','buffer':b'Synthetic Candidate\nSQL Python testing project'})
-    page.get_by_role('button',name='Save resume').click();assert 'SQL' in Profile.objects.get(user__username=username).resume
+    page.get_by_role('button',name='Save resume').click();assert 'SQL' in db(lambda: Profile.objects.get(user__username=username).resume)
     go('/jobs/?role=analyst&level=entry&authorization=opt');expect(page.get_by_text('No matching openings.',exact=True)).to_be_visible()
     go('/jobs/?role=analyst&level=entry&authorization=opt&include_unknown=on');expect(page.get_by_role('link',name='Junior Data Analyst',exact=True)).to_be_visible()
     page.locator('[name=name]').fill('QA search');page.get_by_role('button',name='Save search').click()
     go('/jobs/'+str(job.pk)+'/');page.get_by_role('button',name='Track this opening').click()
-    assert Application.objects.filter(owner__username=username,source_url=job.url).count()==1
+    assert db(lambda: Application.objects.filter(owner__username=username,source_url=job.url).count())==1
     go('/resume/build/')
     for name,value in {'name':'Synthetic Candidate','contact':'qa@example.com','skills':'SQL, Python','experience':'Local synthetic testing','education':'Synthetic degree'}.items():page.locator('[name='+name+']').fill(value)
     page.locator('[name=confirmed]').check();page.get_by_role('button',name='Preview').click();expect(page.get_by_text('Your resume preview',exact=True)).to_be_visible()
@@ -67,16 +70,16 @@ with tempfile.TemporaryDirectory(prefix='careerpilot-browser-') as tmp:
       except Error as e:
        if 'Download is starting' not in str(e):raise
      assert d.value.failure() is None
-    go(detail);page.get_by_role('button',name='Archive application').click();item.refresh_from_db();assert item.archived
-    go(detail);page.get_by_role('button',name='Restore from archive').click();item.refresh_from_db();assert not item.archived
+    go(detail);page.get_by_role('button',name='Archive application').click();db(item.refresh_from_db);assert item.archived
+    go(detail);page.get_by_role('button',name='Restore from archive').click();db(item.refresh_from_db);assert not item.archived
     go('/account/');page.locator('[name=timezone]').select_option('America/Chicago');page.get_by_role('button',name='Save timezone').click()
-    assert Profile.objects.get(user__username=username).timezone=='America/Chicago'
+    assert db(lambda: Profile.objects.get(user__username=username).timezone)=='America/Chicago'
     page.locator('#recovery-password').fill(password);page.get_by_role('button',name='Replace recovery code').click();newcode=page.locator('.recovery-code').inner_text();assert newcode!=code
     context.clear_cookies();go('/recover/')
     for name,value in {'username':username,'recovery_code':newcode,'password1':password,'password2':password}.items():page.locator('[name='+name+']').fill(value)
     page.get_by_role('button',name='Reset password').click();expect(page.locator('.recovery-code')).to_be_visible()
     go('/account/');page.get_by_text('Delete account permanently',exact=True).click();page.locator('#delete-password').fill(password);page.locator('#confirmation').fill('DELETE');page.get_by_role('button',name='Permanently delete account').click()
-    assert not User.objects.filter(username=username).exists();assert Job.objects.filter(pk=job.pk).exists()
+    assert not db(lambda: User.objects.filter(username=username).exists());assert db(lambda: Job.objects.filter(pk=job.pk).exists())
     assert not errors,errors
     context.close();print('PASS Chromium '+str(width)+'px: signup, recovery, account, search, tracking, applications, resume import/build/download, exports, archive and deletion',flush=True)
    browser.close()
