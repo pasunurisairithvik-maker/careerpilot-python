@@ -7,9 +7,10 @@ class Headers:
         try:length=int(request.META.get('CONTENT_LENGTH') or 0)
         except (ValueError,TypeError):return HttpResponse('Invalid request size.',status=400)
         if length<0:return HttpResponse('Invalid request size.',status=400)
-        if length>256*1024:
+        limit=2300000 if request.path in ['/resume/','/resume/check/'] else 256*1024
+        if length>limit:
             from django.http import HttpResponse
-            return HttpResponse('Request too large. Maximum 256 KB.',status=413)
+            return HttpResponse('Request exceeds the upload limit.',status=413)
         response=self.get_response(request)
         response['Content-Security-Policy']="default-src 'self'; script-src 'none'; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         response['Referrer-Policy']='same-origin'

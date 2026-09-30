@@ -29,16 +29,21 @@ class ApplicationForm(forms.ModelForm):
         if len(phrases)>30 or any(len(p)>80 for p in phrases):raise forms.ValidationError('Use up to 30 phrases, each at most 80 characters.')
         return '\n'.join(dict.fromkeys(phrases))
 class ResumeForm(forms.Form):
-    resume=forms.CharField(max_length=20000,required=False,label='Resume text',widget=forms.Textarea(attrs={'rows':16}),help_text='Paste your real resume. No generated experience. Maximum 20,000 characters.')
-    resume_file=forms.FileField(required=False,label='Or import a UTF-8 .txt resume (maximum 80 KB)')
+    resume=forms.CharField(max_length=20000,required=False,label='Resume text',widget=forms.Textarea(attrs={'rows':16}),help_text='Paste your real resume. Maximum 20,000 characters.')
+    resume_file=forms.FileField(required=False,label='Or import TXT (80 KB), DOCX or text-based PDF (2 MB, 10 PDF pages)')
     def clean(self):
         data=super().clean();f=data.get('resume_file')
         if f:
-            if not f.name.lower().endswith('.txt'):self.add_error('resume_file','Only plain .txt files are supported. Paste text from a PDF instead.');return data
-            raw=f.read(80001)
-            if len(raw)>80000:self.add_error('resume_file','File exceeds 80 KB.');return data
-            try:text=raw.decode('utf-8-sig')
-            except UnicodeDecodeError:self.add_error('resume_file','Use UTF-8 text.');return data
-            if '\x00' in text or len(text)>20000:self.add_error('resume_file','Use plain text of at most 20,000 characters.');return data
-            data['resume']=text
+            from .resume_tools import extract_file
+            try:data['resume']=extract_file(f)
+            except ValueError as e:self.add_error('resume_file',str(e))
         return data
+class ResumeBuilderForm(forms.Form):
+    name=forms.CharField(max_length=150)
+    contact=forms.CharField(max_length=300,help_text='Email, phone, city and optional portfolio links. Avoid sensitive identifiers.')
+    summary=forms.CharField(max_length=1000,required=False,widget=forms.Textarea(attrs={'rows':3}))
+    skills=forms.CharField(max_length=1500,required=False,help_text='Comma-separated skills you can demonstrate.')
+    experience=forms.CharField(max_length=5000,required=False,widget=forms.Textarea(attrs={'rows':7}),help_text='Your actual employers, dates and achievements. No invented metrics.')
+    projects=forms.CharField(max_length=5000,required=False,widget=forms.Textarea(attrs={'rows':7}))
+    education=forms.CharField(max_length=1500,required=False,widget=forms.Textarea(attrs={'rows':3}))
+    confirmed=forms.BooleanField(label='I reviewed these details and confirm they are truthful.')

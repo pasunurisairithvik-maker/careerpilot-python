@@ -177,7 +177,10 @@ def export(request):
 def backup(request):
     fields=['company','role','source_url','stage','next_step','due','notes','description','requirements','archived']
     records=[{k:str(getattr(a,k)) if k=='due' and a.due else getattr(a,k) for k in fields} for a in owned(request)]
-    response=JsonResponse({'format_version':1,'resume':request.user.profile.resume,'timezone':request.user.profile.timezone,'applications':records},json_dumps_params={'ensure_ascii':False,'indent':2})
+    from .models import ResumeDraft,SavedSearch
+    draft=ResumeDraft.objects.filter(owner=request.user).first()
+    searches=list(SavedSearch.objects.filter(owner=request.user).values('name','filters','created','seen'))
+    response=JsonResponse({'format_version':2,'resume':request.user.profile.resume,'timezone':request.user.profile.timezone,'applications':records,'resume_draft':draft.fields if draft else None,'saved_searches':searches},json_dumps_params={'ensure_ascii':False,'indent':2})
     response['Content-Disposition']='attachment; filename="careerpilot-backup.json"';return response
 
 def ics_escape(value):return str(value).replace('\\','\\\\').replace('\r','').replace('\n','\\n').replace(';','\\;').replace(',','\\,')
