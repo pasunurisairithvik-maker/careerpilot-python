@@ -35,7 +35,7 @@ Read-only, fixed allowlisted endpoints. No user-supplied server fetch URL or red
 
 References: [Greenhouse Job Board API](https://docs.greenhouse.io/job-board.html), [Lever public Postings API](https://github.com/lever/postings-api). Listings belong to their employers/providers; apply and verify current terms on the original site. This project is not affiliated with HirePilot, employers, or ATS vendors.
 
-See docs/OPERATIONS.md and docs/RELEASE.md for release verification and limits. AI-assisted implementation; the student must understand and demonstrate the code rather than claim unaided authorship.
+See docs/OPERATIONS.md and docs/RELEASE.md for release verification and limits.
 
 ### Discovery refinements
 Title-only search, comma-separated excluded words, company/title sorting and removable active-filter chips help refine results. Empty states report cached active listings and offer an explicit unknown-authorization expansion without claiming eligibility. LinkedIn, Indeed, Dice and ZipRecruiter links are external search shortcuts, not imported feeds or partner integrations. Search terms are sent to those sites only when a user opens the link.
