@@ -24,6 +24,8 @@ def terms(title, description):
                 continue
             before = line[max(0, match.start()-35):match.start()]
             after = line[match.end():match.end()+35]
+            if key in ('w2','1099') and (re.search(r'\bforms?\s*$',before,re.I) or re.match(r'\s+(?:tax\s+)?(?:forms?|filing|reporting|statements)\b',after,re.I)):
+                continue
             if re.search(r'\b(?:no|not|without|exclude|excluding)\s*(?:accepting\s+)?$', before, re.I) or re.match(r'\s+(?:is |are )?(?:not accepted|not available|not offered|not eligible)', after, re.I):
                 continue
             found.setdefault(key, line.strip()[:500])

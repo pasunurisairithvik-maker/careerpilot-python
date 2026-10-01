@@ -6,6 +6,12 @@ from .discovery import evidence
 from .job_views import filtered
 
 class EmploymentTermsTests(SimpleTestCase):
+    def test_tax_documents_are_not_engagement_terms(self):
+        for text in ['Prepare W-2 forms and 1099 statements.', 'Reconcile Form W2 and Form 1099.']:
+            self.assertFalse(terms('Payroll Analyst',text)['keys'] & {'w2','1099'})
+        self.assertIn('w2',terms('Analyst','This is a W-2 contract role.')['keys'])
+        self.assertIn('1099',terms('Analyst','This is a 1099 independent contractor role.')['keys'])
+
     def test_overlapping_dimensions_and_explicit_negation(self):
         keys=terms('Developer', 'Full-time contract position. W-2 only. No C2C. 1099 not accepted.')['keys']
         self.assertEqual(keys, {'full_time','contract','w2'})
