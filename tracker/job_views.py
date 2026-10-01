@@ -30,7 +30,7 @@ class JobFilter(forms.Form):
     level=forms.ChoiceField(required=False,choices=[('','Any experience'),('intern','Internship'),('entry','Entry / graduate'),('mid','Mid-level'),('senior','Senior / lead'),('management','Management / leadership'),('unspecified','Experience not stated')])
     include_unstated=forms.BooleanField(required=False,label='Include listings with unstated seniority')
     workplace=forms.ChoiceField(required=False,choices=[('','Any workplace'),('remote','Remote'),('hybrid','Hybrid'),('onsite','Onsite'),('unspecified','Work arrangement not stated')])
-    provider=forms.ChoiceField(required=False,choices=[('','All sources'),('greenhouse','Greenhouse'),('lever','Lever'),('smartrecruiters','SmartRecruiters')])
+    provider=forms.ChoiceField(required=False,choices=[('','All sources'),('greenhouse','Greenhouse'),('lever','Lever'),('smartrecruiters','SmartRecruiters'),('ashby','Ashby')])
     authorization=forms.ChoiceField(required=False,choices=[('','Any authorization')]+AUTH,label='Listing mentions status')
     include_unknown=forms.BooleanField(required=False,label='Include listings that do not mention this status')
     sponsorship=forms.ChoiceField(required=False,choices=[('','Any sponsorship'),('yes','Employer states sponsorship support'),('no','Employer states no sponsorship'),('unknown','Not confirmed in listing'),('mixed','Conflicting statements')])
@@ -117,6 +117,10 @@ def jobs(request):
             if data.get('authorization'):v['include_unknown']='on'
             if data.get('level'):v['include_unstated']='on'
             variants.append(('Explore without a sponsorship restriction',v))
+        if data.get('employment') or data.get('engagement'):
+            v=query.copy();v.pop('employment',None);v.pop('engagement',None)
+            if data.get('authorization'):v['include_unknown']='on'
+            variants.append(('Explore without employment or engagement restrictions',v))
         if data.get('role'):
             variants.append(('Browse all '+dict(ROLES).get(data['role'],data['role'])+' roles',{'role':data['role']}))
         for label,params in variants:
@@ -134,7 +138,7 @@ def jobs(request):
     role_terms={'developer':'software engineer','analyst':'analyst','qa':'QA tester','mainframe':'COBOL mainframe','cloud':'DevOps','security':'cybersecurity','design':'UX designer','finance':'finance analyst','hr':'recruiter','sales':'customer success','marketing':'marketing','operations':'operations','data':'data science','support':'technical support','product':'product manager'}
     terms=' '.join(x for x in [data.get('q',''),role_terms.get(data.get('role'),''),data.get('company','')] if x).strip()
     external=[{'name':name,'url':base+urlencode({param:terms,location_param:data.get('location','')})} for name,base,param,location_param in [('LinkedIn','https://www.linkedin.com/jobs/search/?','keywords','location'),('Indeed','https://www.indeed.com/jobs?','q','l'),('Dice','https://www.dice.com/jobs?','q','location'),('ZipRecruiter','https://www.ziprecruiter.com/jobs-search?','search','location')]]
-    return render(request,'jobs.html',{'recommendations':recommendations,'recommendation_query':recommendation_query,'suggestions':suggestions,'chips':chips,'broader':broader.urlencode(),'external':external,'available':Job.objects.filter(active=True).count(),'form':form,'page':page,'query':query.urlencode(),'saved':saved,'feeds':FeedState.objects.filter(Q(key__startswith='greenhouse:')|Q(key__startswith='lever:')|Q(key__startswith='smartrecruiters:')),'total':pager.count,'sources':SOURCES})
+    return render(request,'jobs.html',{'recommendations':recommendations,'recommendation_query':recommendation_query,'suggestions':suggestions,'chips':chips,'broader':broader.urlencode(),'external':external,'available':Job.objects.filter(active=True).count(),'form':form,'page':page,'query':query.urlencode(),'saved':saved,'feeds':FeedState.objects.filter(Q(key__startswith='greenhouse:')|Q(key__startswith='lever:')|Q(key__startswith='smartrecruiters:')|Q(key__startswith='ashby:')),'total':pager.count,'sources':SOURCES})
 def job(request,pk):
     item=get_object_or_404(Job,pk=pk)
     match=analyse(item.description,request.user.profile.resume) if request.user.is_authenticated else None

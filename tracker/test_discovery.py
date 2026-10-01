@@ -153,10 +153,10 @@ class DiscoveryTests(TestCase):
         self.assertTrue(form.is_valid());self.assertEqual(filtered(form.cleaned_data).count(),0)
     def test_all_discovery_sources_are_allowlisted_and_unique(self):
         from .discovery import SOURCES
-        self.assertEqual(len(SOURCES),37)
-        self.assertEqual(len({(p,b) for p,b,_ in SOURCES}),37)
+        self.assertEqual(len(SOURCES),38)
+        self.assertEqual(len({(p,b) for p,b,_ in SOURCES}),38)
         for provider,board,company in SOURCES:
-            self.assertIn(provider,['greenhouse','lever','smartrecruiters'])
+            self.assertIn(provider,['greenhouse','lever','smartrecruiters','ashby'])
             self.assertRegex(board,r'^[A-Za-z0-9]+$')
             self.assertTrue(company)
 

@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
-SOURCES=[('greenhouse','stripe','Stripe'),('greenhouse','cloudflare','Cloudflare'),('greenhouse','datadog','Datadog'),('lever','palantir','Palantir'),('lever','spotify','Spotify'),('greenhouse','mongodb','MongoDB'),('greenhouse','figma','Figma'),('greenhouse','toast','Toast'),('greenhouse','gitlab','GitLab'),('greenhouse','hubspotjobs','HubSpot'),('greenhouse','airbnb','Airbnb'),('greenhouse','reddit','Reddit'),('greenhouse','dropbox','Dropbox'),('greenhouse','twilio','Twilio'),('greenhouse','discord','Discord'),('greenhouse','duolingo','Duolingo'),('greenhouse','pinterest','Pinterest'),('greenhouse','roblox','Roblox'),('greenhouse','affirm','Affirm'),('greenhouse','sofi','SoFi'),('greenhouse','asana','Asana'),('greenhouse','zscaler','Zscaler'),('greenhouse','okta','Okta'),('greenhouse','rubrik','Rubrik'),('greenhouse','gusto','Gusto'),('greenhouse','brex','Brex'),('greenhouse','elastic','Elastic'),('greenhouse','samsara','Samsara'),('greenhouse','verkada','Verkada'),('greenhouse','scaleai','Scale AI'),('greenhouse','doordashusa','DoorDash'),('greenhouse','lyft','Lyft'),('greenhouse','robinhood','Robinhood'),('greenhouse','chime','Chime'),('greenhouse','fivetran','Fivetran'),('smartrecruiters','ServiceNow','ServiceNow'),('smartrecruiters','BoschGroup','Bosch')]
+SOURCES=[('greenhouse','stripe','Stripe'),('greenhouse','cloudflare','Cloudflare'),('greenhouse','datadog','Datadog'),('lever','palantir','Palantir'),('lever','spotify','Spotify'),('greenhouse','mongodb','MongoDB'),('greenhouse','figma','Figma'),('greenhouse','toast','Toast'),('greenhouse','gitlab','GitLab'),('greenhouse','hubspotjobs','HubSpot'),('greenhouse','airbnb','Airbnb'),('greenhouse','reddit','Reddit'),('greenhouse','dropbox','Dropbox'),('greenhouse','twilio','Twilio'),('greenhouse','discord','Discord'),('greenhouse','duolingo','Duolingo'),('greenhouse','pinterest','Pinterest'),('greenhouse','roblox','Roblox'),('greenhouse','affirm','Affirm'),('greenhouse','sofi','SoFi'),('greenhouse','asana','Asana'),('greenhouse','zscaler','Zscaler'),('greenhouse','okta','Okta'),('greenhouse','rubrik','Rubrik'),('greenhouse','gusto','Gusto'),('greenhouse','brex','Brex'),('greenhouse','elastic','Elastic'),('greenhouse','samsara','Samsara'),('greenhouse','verkada','Verkada'),('greenhouse','scaleai','Scale AI'),('greenhouse','doordashusa','DoorDash'),('greenhouse','lyft','Lyft'),('greenhouse','robinhood','Robinhood'),('greenhouse','chime','Chime'),('greenhouse','fivetran','Fivetran'),('smartrecruiters','ServiceNow','ServiceNow'),('smartrecruiters','BoschGroup','Bosch'),('ashby','ramp','Ramp')]
 ROLES=[("developer","Software development"),("analyst","Data / business analyst"),("qa","QA / testing"),("data","Data engineering / science / ML"),("support","IT / technical support"),("product","Product / project / program"),("security","Cybersecurity"),("cloud","Cloud / DevOps / SRE"),("design","Design / UX"),("finance","Finance / accounting"),("hr","HR / recruiting"),("sales","Sales / customer success"),("marketing","Marketing"),("operations","Operations / supply chain"),("mainframe","Mainframe / COBOL"),("other","Other")]
 AUTH=[('opt','OPT'),('stem_opt','STEM OPT'),('h1b','H-1B'),('green_card','Green card / permanent resident'),('citizen','US citizen')]
 class Plain(HTMLParser):
@@ -25,11 +25,16 @@ def safe_url(value):
     p=urlsplit(str(value or ''))
     if p.scheme!='https' or not p.hostname or p.username or p.password or len(value)>500:return ''
     return urlunsplit((p.scheme,p.netloc,p.path,urlencode([(k,v) for k,v in parse_qsl(p.query) if not k.lower().startswith('utm_')]),''))
-def classify(title):
+def classify(title,description=''):
     t=title.lower()
     for role,pattern in [('mainframe',r'mainframe|cobol|z/os'),('security',r'cybersecurity|security engineer|security analyst|information security'),('cloud',r'devops|site reliability|\bsre\b|cloud engineer|platform engineer'),('design',r'designer|user experience|\bux\b|\bui\b'),('hr',r'human resources|recruiter|recruiting|people operations|hr analyst'),('finance',r'finance|financial|accountant|accounting|treasury|fp&a'),('sales',r'customer success|account executive|sales|business development'),('marketing',r'marketing|seo|content strategist'),('operations',r'supply chain|logistics|operations manager|operations coordinator'),('qa',r'\bqa\b|quality assurance|test engineer|sdet'),('data',r'data scientist|machine learning|research scientist|data engineer'),('analyst',r'analyst|analytics'),('support',r'help desk|technical support|it support|support engineer'),('developer',r'software|developer|programmer|backend|front.?end|full.?stack|embedded|application engineer'),('product',r'product manager|project manager|program manager')]:
         if re.search(pattern,t):return role
-    return 'other'
+    # A clear title wins. For vague titles, use role-specific phrases in the JD,
+    # not generic skills or the employer's company-wide boilerplate.
+    matches=set()
+    for role,pattern in [('mainframe',r'\b(?:COBOL|mainframe|z/OS)\b'),('qa',r'\b(?:quality assurance|test automation|SDET)\b'),('cloud',r'\b(?:site reliability engineer|DevOps engineer|cloud engineer)\b'),('developer',r'\b(?:software engineer|software developer|backend developer|frontend developer)\b'),('analyst',r'\b(?:data analyst|business analyst|business intelligence analyst)\b'),('data',r'\b(?:data scientist|data engineer|machine learning engineer)\b'),('support',r'\b(?:technical support engineer|help desk technician)\b')]:
+        if re.search(pattern,description,re.I):matches.add(role)
+    return next(iter(matches)) if len(matches)==1 else 'other'
 def seniority(title):
     t=title.lower()
     if re.search(r'\b(?:intern|internship|co-op)\b',t):return 'intern'
@@ -65,6 +70,9 @@ def evidence(text):
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*a,**kw):raise ValueError('Feed redirects are not followed')
 def download(provider,slug):
+    if provider=='ashby':
+        from .ashby import download as ashby_download
+        return ashby_download(slug)
     if provider=='smartrecruiters':
         from .smartrecruiters import download as smart_download
         return smart_download(slug)
@@ -84,6 +92,9 @@ def download(provider,slug):
     if not isinstance(rows,list) or len(rows)>1000:raise ValueError('Invalid or oversized feed')
     return rows
 def normalize(provider,slug,company,row):
+    if provider=='ashby':
+        from .ashby import normalize as ashby_normalize
+        return ashby_normalize(slug,company,row)
     if provider=='smartrecruiters':
         from .smartrecruiters import normalize as smart_normalize
         return smart_normalize(slug,company,row)
@@ -107,7 +118,7 @@ def normalize(provider,slug,company,row):
     remote,workplace_quote=workplace_trait(location,description,workplace)
     salary=salary_trait(description,salary)
     statements=evidence(description);statements['workplace']={'state':remote,'evidence':[workplace_quote]}
-    return dict(source_key=f'{provider}:{slug}:{row["id"]}',provider=provider,board=slug,company=company,title=title,location=location,description=description,url=url,role=classify(title),level=level(title,description),workplace=remote,salary=salary,evidence=statements,source_updated=str(row.get('updated_at') or '')[:50])
+    return dict(source_key=f'{provider}:{slug}:{row["id"]}',provider=provider,board=slug,company=company,title=title,location=location,description=description,url=url,role=classify(title,description),level=level(title,description),workplace=remote,salary=salary,evidence=statements,source_updated=str(row.get('updated_at') or '')[:50])
 def refresh(force=False, min_interval=30):
     from .models import Job,FeedState
     now=timezone.now()
