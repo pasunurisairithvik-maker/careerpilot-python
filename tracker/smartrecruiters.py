@@ -34,6 +34,8 @@ def normalize(slug,company,row):
  location=row.get('location') or {}
  sections=(row.get('jobAd') or {}).get('sections') or {}
  description='\n'.join(str(s.get('title',''))+'\n'+str(s.get('text','')) for s in sections.values() if isinstance(s,dict))
+ employment=row.get('typeOfEmployment') or {}
+ if isinstance(employment,dict) and employment.get('label'):description+='\nEmployer employment type: '+str(employment['label'])
  arrangement='hybrid' if location.get('hybrid') else 'remote' if location.get('remote') else ''
  surrogate={'id':row.get('id'),'title':row.get('name'),'location':{'name':location.get('fullLocation') or ', '.join(str(location.get(k,'')) for k in ('city','region','country'))},'content':description,'absolute_url':row.get('postingUrl') or row.get('applyUrl'),'updated_at':row.get('releasedDate'),'workplaceType':arrangement}
  result=common('greenhouse',slug,company,surrogate)

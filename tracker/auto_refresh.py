@@ -14,8 +14,9 @@ def _run():
     close_old_connections()
     try:
         from django.core.management import call_command
+        needs_full_read=not FeedState.objects.filter(key='normalization-v9',success__isnull=False).exists()
         call_command('reclassify_jobs',verbosity=0)
-        result = refresh(min_interval=170)
+        result = refresh(force=needs_full_read,min_interval=170)
         _log.info("Public job refresh completed: %s", result)
     except Exception:
         _log.exception("Public job refresh failed; previous cache retained")
@@ -29,7 +30,7 @@ def maybe_refresh():
     state = FeedState.objects.filter(key='refresh').first()
     if state and state.attempted and timezone.now()-state.attempted < timedelta(minutes=170):
         known=set(FeedState.objects.values_list('key',flat=True))
-        normalized=FeedState.objects.filter(key='normalization-v8',success__isnull=False).exists()
+        normalized=FeedState.objects.filter(key='normalization-v9',success__isnull=False).exists()
         if normalized and all(f'{provider}:{board}' in known for provider,board,_ in SOURCES):return False
     if not _guard.acquire(blocking=False):
         return False

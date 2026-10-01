@@ -19,8 +19,10 @@ class Plain(HTMLParser):
         if t in ['p','div','li']:self.parts.append('\n')
     def handle_data(self,d):
         if not self.skip:self.parts.append(d)
-def plain(value):
-    p=Plain();p.feed(html.unescape(str(value or '')));return re.sub(r'\n\s*\n+','\n',''.join(p.parts)).strip()[:20000]
+def plain(value,limit=20000):
+    p=Plain();p.feed(html.unescape(str(value or '')));text=re.sub(r'\n\s*\n+','\n',''.join(p.parts)).strip()
+    if limit==100000 and len(text)>limit:raise ValueError('Description exceeds public storage bound')
+    return text[:limit]
 def safe_url(value):
     p=urlsplit(str(value or ''))
     if p.scheme!='https' or not p.hostname or p.username or p.password or len(value)>500:return ''
@@ -28,12 +30,13 @@ def safe_url(value):
 def classify(title,description=''):
     t=title.lower()
     if re.search(r'\b(?:software engineer in test|engineer in test|sdet|qa|quality assurance|test engineer)\b',t):return 'qa'
+    if re.search(r'\b(?:android|ios|mobile|firmware) (?:software )?engineer\b',t):return 'developer'
     for role,pattern in [('mainframe',r'mainframe|cobol|z/os'),('security',r'cybersecurity|security engineer|security analyst|information security'),('cloud',r'devops|site reliability|\bsre\b|cloud engineer|platform engineer'),('design',r'designer|user experience|\bux\b|\bui\b'),('hr',r'human resources|recruiter|recruiting|people operations|hr analyst'),('finance',r'finance|financial|accountant|accounting|treasury|fp&a'),('sales',r'customer success|account executive|sales|business development'),('marketing',r'marketing|seo|content strategist'),('operations',r'supply chain|logistics|operations manager|operations coordinator'),('qa',r'\bqa\b|quality assurance|test engineer|sdet'),('data',r'data scientist|machine learning|research scientist|data engineer'),('analyst',r'analyst|analytics'),('support',r'help desk|technical support|it support|support engineer'),('developer',r'software|developer|programmer|backend|front.?end|full.?stack|embedded|application engineer'),('product',r'product manager|project manager|program manager')]:
         if re.search(pattern,t):return role
     # A clear title wins. For vague titles, use role-specific phrases in the JD,
     # not generic skills or the employer's company-wide boilerplate.
     matches=set()
-    for role,pattern in [('mainframe',r'\b(?:COBOL|mainframe|z/OS)\b'),('qa',r'\b(?:quality assurance|test automation|SDET)\b'),('cloud',r'\b(?:site reliability engineer|DevOps engineer|cloud engineer)\b'),('developer',r'\b(?:software engineer|software developer|backend developer|frontend developer)\b'),('analyst',r'\b(?:data analyst|business analyst|business intelligence analyst)\b'),('data',r'\b(?:data scientist|data engineer|machine learning engineer)\b'),('support',r'\b(?:technical support engineer|help desk technician)\b')]:
+    for role,pattern in [('mainframe',r'\b(?:COBOL|mainframe|z/OS)\b'),('qa',r'\b(?:quality assurance|test automation|SDET)\b'),('cloud',r'\b(?:site reliability engineer|DevOps engineer|cloud engineer)\b'),('developer',r'\b(?:software engineer|software developer|backend developer|frontend developer)\b'),('analyst',r'\b(?:data analyst|business analyst|business intelligence analyst)\b'),('data',r'\b(?:data scientist|data engineer|machine learning engineer)\b'),('support',r'\b(?:technical support engineer|help desk technician)\b'),('security',r'\b(?:security analyst|cybersecurity engineer|security engineer)\b'),('design',r'\b(?:UX designer|UI designer|product designer)\b'),('finance',r'\b(?:financial analyst|accountant|finance analyst)\b'),('hr',r'\b(?:recruiter|HR analyst|human resources specialist)\b'),('sales',r'\b(?:account executive|sales representative|customer success manager)\b'),('marketing',r'\b(?:marketing specialist|marketing manager|content strategist)\b'),('operations',r'\b(?:supply chain analyst|logistics coordinator|operations coordinator)\b'),('product',r'\b(?:product manager|project manager|program manager)\b')]:
         if re.search(pattern,description,re.I):matches.add(role)
     return next(iter(matches)) if len(matches)==1 else 'other'
 def seniority(title):
@@ -105,8 +108,10 @@ def normalize(provider,slug,company,row):
     if not title:raise ValueError('Missing title')
     categories=row.get('categories') or {}
     location=str((row.get('location') or {}).get('name','') if provider=='greenhouse' else categories.get('location',''))[:200]
-    description=plain(row.get('content','') if provider=='greenhouse' else row.get('descriptionPlain') or row.get('description',''))
-    if provider=='lever':description+='\n'+plain('\n'.join(str(x.get('text',''))+'\n'+str(x.get('content','')) for x in row.get('lists',[]) if isinstance(x,dict)))+'\n'+plain(row.get('additionalPlain') or row.get('additional',''))
+    description=plain(row.get('content','') if provider=='greenhouse' else row.get('descriptionPlain') or row.get('description',''),limit=100000)
+    if provider=='lever':description+='\n'+plain('\n'.join(str(x.get('text',''))+'\n'+str(x.get('content','')) for x in row.get('lists',[]) if isinstance(x,dict)),limit=100000)+'\n'+plain(row.get('additionalPlain') or row.get('additional',''),limit=100000)
+    if provider=='lever' and categories.get('commitment'):
+        description+='\nEmployer employment type: '+plain(categories['commitment'])
     url=safe_url(row.get('absolute_url','') if provider=='greenhouse' else row.get('hostedUrl',''))
     if not url:raise ValueError('Unsafe source link')
     workplace=row.get('workplaceType','')
@@ -114,7 +119,7 @@ def normalize(provider,slug,company,row):
     salary=plain(row.get('salaryDescription',''))[:1000]
     salary_range=row.get('salaryRange')
     if isinstance(salary_range,dict):salary=(salary+'\n'+json.dumps(salary_range,ensure_ascii=False))[:1000]
-    description=description[:20000]
+    if len(description)>100000:raise ValueError('Description exceeds public storage bound')
     from .job_traits import level,workplace as workplace_trait,salary as salary_trait
     remote,workplace_quote=workplace_trait(location,description,workplace)
     salary=salary_trait(description,salary)

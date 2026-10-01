@@ -198,7 +198,7 @@ def track(request,pk):
         prior=Application.objects.filter(owner=request.user,source_url=item.url).first()
         if prior:return redirect('detail',pk=prior.pk)
         if Application.objects.filter(owner=request.user).count()>=100:messages.error(request,'Your account has reached its 100-application limit.');return redirect('job',pk=pk)
-        app=Application.objects.create(owner=request.user,company=item.company,role=item.title,source_url=item.url,description=item.description)
+        app=Application.objects.create(owner=request.user,company=item.company,role=item.title,source_url=item.url,description=item.description[:20000])
     return redirect('detail',pk=app.pk)
 @login_required
 def resume_check(request):

@@ -17,3 +17,18 @@ class JDIngestionTests(SimpleTestCase):
   self.assertTrue(job['salary'])
   row['isListed']=False
   with self.assertRaises(ValueError):normalize('ashby','synthetic','Synthetic',row)
+
+ def test_long_description_tail_is_analyzed_and_stored(self):
+  description='Responsibilities. '+('General information. '*1200)+'\nRequirements: 6 years of experience. We do not offer visa sponsorship.'
+  job=normalize('greenhouse','synthetic','Synthetic',{'id':'long','title':'Analyst','location':{'name':'US'},'content':description,'absolute_url':'https://example.org/long'})
+  self.assertGreater(len(job['description']),20000)
+  self.assertEqual(job['level'],'senior')
+  self.assertEqual(job['evidence']['sponsorship']['state'],'no')
+  with self.assertRaises(ValueError):normalize('greenhouse','synthetic','Synthetic',{'id':'huge','title':'Analyst','content':'x'*100001,'absolute_url':'https://example.org/huge'})
+ def test_structured_lever_employment_and_clear_mobile_role(self):
+  job=normalize('lever','synthetic','Synthetic',{'id':'1','text':'Senior Android Engineer','categories':{'location':'US','commitment':'Full-time'},'descriptionPlain':'Work with quality assurance and test automation.','hostedUrl':'https://example.org/mobile'})
+  self.assertEqual(job['role'],'developer')
+  self.assertIn('full_time',terms(job['title'],job['description'])['keys'])
+ def test_more_description_role_families(self):
+  self.assertEqual(classify('Associate','We need a financial analyst.'),'finance')
+  self.assertEqual(classify('Associate','We need a UX designer.'),'design')

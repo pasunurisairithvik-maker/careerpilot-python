@@ -65,11 +65,11 @@ class SearchMatrixTests(TestCase):
         from django.utils import timezone
         from .models import Job,FeedState
         jobs=[Job.objects.create(source_key=f'synthetic:resume:{i}',provider='greenhouse',board='synthetic',company='Example',title='SRE',role='other',url=f'https://example.org/job/{i}',checked=timezone.now()) for i in range(2)]
-        FeedState.objects.create(key='normalization-v8',count=jobs[0].pk)
+        FeedState.objects.create(key='normalization-v9',count=jobs[0].pk)
         call_command('reclassify_jobs',stdout=io.StringIO())
         jobs[0].refresh_from_db();jobs[1].refresh_from_db()
         self.assertEqual(jobs[0].role,'other');self.assertEqual(jobs[1].role,'cloud')
-        self.assertIsNotNone(FeedState.objects.get(key='normalization-v8').success)
+        self.assertIsNotNone(FeedState.objects.get(key='normalization-v9').success)
 
     def test_failed_feed_can_recover_without_refreshing_healthy_boards(self):
         from datetime import timedelta

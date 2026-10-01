@@ -41,7 +41,7 @@ class Job(models.Model):
     company=models.CharField(max_length=100)
     title=models.CharField(max_length=150)
     location=models.CharField(max_length=200,blank=True)
-    description=models.TextField(max_length=20000)
+    description=models.TextField(max_length=100000)
     url=models.URLField(max_length=500)
     role=models.CharField(max_length=20)
     level=models.CharField(max_length=20)
@@ -71,3 +71,4 @@ class ResumeDraft(models.Model):
     owner=models.OneToOneField(settings.AUTH_USER_MODEL,on_delete=models.CASCADE)
     fields=models.JSONField(default=dict)
     updated=models.DateTimeField(auto_now=True)
+
