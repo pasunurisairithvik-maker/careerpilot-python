@@ -16,6 +16,13 @@ class EvidenceRegressions(SimpleTestCase):
   for text in ['Four days a week in the office. We have a fully remote program.', 'We require three coordinated days in the office per week. Four weeks of fully remote work is a perk.']:
    self.assertEqual(workplace('San Francisco',text)[0],'hybrid')
   self.assertEqual(workplace('San Francisco','Our fully remote program is a benefit.')[0],'unspecified')
+ def test_role_workplace_not_company_boilerplate(self):
+  for text in ['Some positions are office-based. Remote employees attend in-person onboarding.', 'Our office-based roles require attendance. This is a remote role in the UK.']:
+   self.assertEqual(workplace('Remote UK',text,'onsite')[0],'remote')
+  self.assertEqual(workplace('Remote UK','This role is office-based.')[0],'onsite')
+ def test_test_engineering_not_design(self):
+  self.assertEqual(classify('Senior Software Engineer in Test, UI Platform'),'qa')
+  self.assertEqual(classify('UI Designer'),'design')
  def test_explicit_onsite_and_multiline_pay(self):
   for text in ['This role requires you to be onsite at our HQ.', 'Must work onsite five days per week.']:
    self.assertEqual(workplace('San Mateo',text)[0],'onsite')

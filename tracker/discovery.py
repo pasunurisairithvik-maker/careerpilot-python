@@ -27,6 +27,7 @@ def safe_url(value):
     return urlunsplit((p.scheme,p.netloc,p.path,urlencode([(k,v) for k,v in parse_qsl(p.query) if not k.lower().startswith('utm_')]),''))
 def classify(title,description=''):
     t=title.lower()
+    if re.search(r'\b(?:software engineer in test|engineer in test|sdet|qa|quality assurance|test engineer)\b',t):return 'qa'
     for role,pattern in [('mainframe',r'mainframe|cobol|z/os'),('security',r'cybersecurity|security engineer|security analyst|information security'),('cloud',r'devops|site reliability|\bsre\b|cloud engineer|platform engineer'),('design',r'designer|user experience|\bux\b|\bui\b'),('hr',r'human resources|recruiter|recruiting|people operations|hr analyst'),('finance',r'finance|financial|accountant|accounting|treasury|fp&a'),('sales',r'customer success|account executive|sales|business development'),('marketing',r'marketing|seo|content strategist'),('operations',r'supply chain|logistics|operations manager|operations coordinator'),('qa',r'\bqa\b|quality assurance|test engineer|sdet'),('data',r'data scientist|machine learning|research scientist|data engineer'),('analyst',r'analyst|analytics'),('support',r'help desk|technical support|it support|support engineer'),('developer',r'software|developer|programmer|backend|front.?end|full.?stack|embedded|application engineer'),('product',r'product manager|project manager|program manager')]:
         if re.search(pattern,t):return role
     # A clear title wins. For vague titles, use role-specific phrases in the JD,

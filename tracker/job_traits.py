@@ -15,7 +15,10 @@ def level(title,description):
  return titled
 
 def workplace(location,description,metadata=''):
+ # Split flattened feed descriptions into sentences so unrelated company policy
+ # cannot qualify a role-specific statement in the same long paragraph.
  text='\n'.join([location or '',description or ''])
+ text=re.sub(r'(?<=[.!?])\s+', '\n', text)
  patterns={
   'hybrid':r'\bhybrid (?:role|position|work|working|model|schedule|arrangement|office)\b|\b\d+ days? (?:per week |a week )?(?:in (?:the )?office|on[- ]?site)',
   'remote':r'\b(?:fully remote (?:role|position|job|work)|remote (?:role|position|job|work|within|from|in|across)|work (?:fully )?remotely|work from home)\b',
@@ -27,10 +30,11 @@ def workplace(location,description,metadata=''):
   if re.search(r'\b(?:one|two|three|four|five|[1-5]) (?:coordinated )?days?.{0,35}(?:a |per )week',line,re.I) and re.search(r'\b(?:office|in-person)\b',line,re.I):return 'hybrid',line.strip()[:500]
  for kind,pattern in patterns.items():
   for line in text.splitlines():
+   if re.search(r'\b(?:some|certain|other) (?:positions|roles|jobs)|\boffice[- ]based (?:positions|roles)|\bin[- ]person onboarding\b',line,re.I):continue
    if re.search(pattern,line,re.I) and not re.search(r'(?:not|no|cannot|unable).{0,25}(?:remote|hybrid)|(?:remote|hybrid).{0,25}(?:not available|not permitted|not supported)',line,re.I):return kind,line.strip()[:500]
- if metadata in ('remote','hybrid','onsite','on-site'):return metadata.replace('on-site','onsite'),'Employer workplace metadata: '+metadata
  for kind in ('hybrid','remote','onsite'):
   if re.search(r'\b'+kind+r'\b',location or '',re.I):return kind,location[:500]
+ if metadata in ('remote','hybrid','onsite','on-site'):return metadata.replace('on-site','onsite'),'Employer workplace metadata: '+metadata
  return 'unspecified','Work arrangement not stated in listing.'
 
 def salary(description,structured=''):
