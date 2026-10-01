@@ -22,7 +22,7 @@ class ScheduledRefreshTests(TestCase):
         state=FeedState.objects.create(key='refresh',attempted=timezone.now()-timedelta(hours=2))
         from .discovery import SOURCES
         FeedState.objects.bulk_create([FeedState(key=f'{p}:{b}') for p,b,_ in SOURCES])
-        FeedState.objects.create(key='normalization-v6',success=timezone.now())
+        FeedState.objects.create(key='normalization-v8',success=timezone.now())
         with patch('tracker.auto_refresh.threading.Thread') as thread:
             self.assertFalse(maybe_refresh())
             thread.assert_not_called()
@@ -32,6 +32,19 @@ class ScheduledRefreshTests(TestCase):
                 self.assertFalse(maybe_refresh())
                 thread.assert_called_once()
                 self.assertTrue(thread.call_args.kwargs['daemon'])
+            finally:
+                if _guard.locked():_guard.release()
+
+    @override_settings(AUTO_JOB_REFRESH=True)
+    def test_old_normalization_does_not_block_new_labels(self):
+        FeedState.objects.create(key='refresh',attempted=timezone.now())
+        FeedState.objects.create(key='normalization-v6',success=timezone.now())
+        from .discovery import SOURCES
+        FeedState.objects.bulk_create([FeedState(key=f'{p}:{b}') for p,b,_ in SOURCES])
+        with patch('tracker.auto_refresh.threading.Thread') as thread:
+            try:
+                self.assertTrue(maybe_refresh())
+                thread.assert_called_once()
             finally:
                 if _guard.locked():_guard.release()
 
