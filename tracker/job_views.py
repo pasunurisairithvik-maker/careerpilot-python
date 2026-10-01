@@ -18,6 +18,7 @@ from .matching import analyse
 from .resume_tools import checks,build_text,docx
 from .forms import ResumeBuilderForm
 from .job_presentation import experience_requirement,description_sections,authorization_rows
+from .employment import terms as employment_terms, EMPLOYMENT, ENGAGEMENT
 class JobFilter(forms.Form):
     q=forms.CharField(required=False,max_length=100,label='Keywords')
     exclude=forms.CharField(required=False,max_length=100,label='Exclude words (comma separated)')
@@ -33,6 +34,8 @@ class JobFilter(forms.Form):
     authorization=forms.ChoiceField(required=False,choices=[('','Any authorization')]+AUTH,label='Listing mentions status')
     include_unknown=forms.BooleanField(required=False,label='Include listings that do not mention this status')
     sponsorship=forms.ChoiceField(required=False,choices=[('','Any sponsorship'),('yes','Employer states sponsorship support'),('no','Employer states no sponsorship'),('unknown','Not confirmed in listing'),('mixed','Conflicting statements')])
+    employment=forms.ChoiceField(required=False,choices=[('', 'Any employment type')]+EMPLOYMENT,label='Employment type')
+    engagement=forms.ChoiceField(required=False,choices=[('', 'Any engagement basis')]+ENGAGEMENT,label='Engagement basis')
     salary=forms.BooleanField(required=False,label='Only jobs with published pay')
     days=forms.ChoiceField(required=False,choices=[('','Any first-seen date'),('1','First seen in 24 hours'),('7','First seen in 7 days'),('30','First seen in 30 days')])
     fresh=forms.BooleanField(required=False,label='Only feeds checked in the last 24 hours')
@@ -61,11 +64,15 @@ def filtered(data):
     # Same canonical application URL represents the same listing; don't merge distinct requisitions merely by title.
     seen=set();ids=[]
     check_experience=data.get('level') in ['entry','intern']
-    columns=['pk','url']+(['description'] if check_experience else [])
+    check_terms=bool(data.get('employment') or data.get('engagement'))
+    columns=['pk','url']+(['description'] if check_experience or check_terms else [])+(['title'] if check_terms else [])
     for row in qs.order_by('-active','-first_seen','pk').values_list(*columns).iterator(chunk_size=100):
         pk,url=row[:2]
         experience=experience_requirement(row[2]) if check_experience else None
         if experience and experience['years']>2:continue
+        if check_terms:
+            labels=employment_terms(row[3],row[2])['keys']
+            if any(data.get(field) and (not labels.isdisjoint({k for k,_ in choices if k!='unknown'}) if data[field]=='unknown' else data[field] not in labels) for field,choices in [('employment',EMPLOYMENT),('engagement',ENGAGEMENT)]):continue
         if url not in seen:seen.add(url);ids.append(pk)
     qs=qs.filter(pk__in=ids)
     return qs.order_by('company','title','pk') if data.get('sort')=='company' else qs.order_by('title','pk') if data.get('sort')=='title' else qs
@@ -76,6 +83,7 @@ def jobs(request):
     qs=filtered(data) if valid else Job.objects.none()
     pager=Paginator(qs,20);page=pager.get_page(request.GET.get('page'))
     for listing in page:
+        listing.employment_terms=employment_terms(listing.title,listing.description)
         listing.experience=experience_requirement(listing.description)
         listing.evidence=jd_evidence(listing.description)
         listing.level=jd_level(listing.title,listing.description)
@@ -130,6 +138,7 @@ def jobs(request):
 def job(request,pk):
     item=get_object_or_404(Job,pk=pk)
     match=analyse(item.description,request.user.profile.resume) if request.user.is_authenticated else None
+    item.employment_terms=employment_terms(item.title,item.description)
     item.evidence=jd_evidence(item.description)
     item.level=jd_level(item.title,item.description)
     item.workplace,item.workplace_quote=jd_workplace(item.location,item.description,item.workplace)
