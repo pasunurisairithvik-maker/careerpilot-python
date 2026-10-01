@@ -36,6 +36,8 @@ class JobFilter(forms.Form):
     sponsorship=forms.ChoiceField(required=False,choices=[('','Any sponsorship'),('yes','Employer states sponsorship support'),('no','Employer states no sponsorship'),('unknown','Not confirmed in listing'),('mixed','Conflicting statements')])
     employment=forms.ChoiceField(required=False,choices=[('', 'Any employment type')]+EMPLOYMENT,label='Employment type')
     engagement=forms.ChoiceField(required=False,choices=[('', 'Any engagement basis')]+ENGAGEMENT,label='Engagement basis')
+    include_employment_unknown=forms.BooleanField(required=False,label='Also show jobs with unstated employment type')
+    include_engagement_unknown=forms.BooleanField(required=False,label='Also show jobs with unstated engagement basis')
     salary=forms.BooleanField(required=False,label='Only jobs with published pay')
     days=forms.ChoiceField(required=False,choices=[('','Any first-seen date'),('1','First seen in 24 hours'),('7','First seen in 7 days'),('30','First seen in 30 days')])
     fresh=forms.BooleanField(required=False,label='Only feeds checked in the last 24 hours')
@@ -72,7 +74,12 @@ def filtered(data):
         if experience and experience['years']>2:continue
         if check_terms:
             labels=employment_terms(row[3],row[2])['keys']
-            if any(data.get(field) and (not labels.isdisjoint({k for k,_ in choices if k!='unknown'}) if data[field]=='unknown' else data[field] not in labels) for field,choices in [('employment',EMPLOYMENT),('engagement',ENGAGEMENT)]):continue
+            rejected=False
+            for field,choices in [('employment',EMPLOYMENT),('engagement',ENGAGEMENT)]:
+                selected=data.get(field)
+                known=not labels.isdisjoint({k for k,_ in choices if k!='unknown'})
+                if selected and ((selected=='unknown' and known) or (selected!='unknown' and selected not in labels and not (data.get('include_'+field+'_unknown') and not known))):rejected=True
+            if rejected:continue
         if url not in seen:seen.add(url);ids.append(pk)
     qs=qs.filter(pk__in=ids)
     return qs.order_by('company','title','pk') if data.get('sort')=='company' else qs.order_by('title','pk') if data.get('sort')=='title' else qs
@@ -138,7 +145,11 @@ def jobs(request):
     role_terms={'developer':'software engineer','analyst':'analyst','qa':'QA tester','mainframe':'COBOL mainframe','cloud':'DevOps','security':'cybersecurity','design':'UX designer','finance':'finance analyst','hr':'recruiter','sales':'customer success','marketing':'marketing','operations':'operations','data':'data science','support':'technical support','product':'product manager'}
     terms=' '.join(x for x in [data.get('q',''),role_terms.get(data.get('role'),''),data.get('company','')] if x).strip()
     external=[{'name':name,'url':base+urlencode({param:terms,location_param:data.get('location','')})} for name,base,param,location_param in [('LinkedIn','https://www.linkedin.com/jobs/search/?','keywords','location'),('Indeed','https://www.indeed.com/jobs?','q','l'),('Dice','https://www.dice.com/jobs?','q','location'),('ZipRecruiter','https://www.ziprecruiter.com/jobs-search?','search','location')]]
-    return render(request,'jobs.html',{'recommendations':recommendations,'recommendation_query':recommendation_query,'suggestions':suggestions,'chips':chips,'broader':broader.urlencode(),'external':external,'available':Job.objects.filter(active=True).count(),'form':form,'page':page,'query':query.urlencode(),'saved':saved,'feeds':FeedState.objects.filter(Q(key__startswith='greenhouse:')|Q(key__startswith='lever:')|Q(key__startswith='smartrecruiters:')|Q(key__startswith='ashby:')),'total':pager.count,'sources':SOURCES})
+    feed_keys=[f'{provider}:{board}' for provider,board,_ in SOURCES]
+    feeds=FeedState.objects.filter(key__in=feed_keys)
+    reporting=feeds.filter(success__isnull=False).count()
+    failures=feeds.exclude(error='').count()
+    return render(request,'jobs.html',{'recommendations':recommendations,'recommendation_query':recommendation_query,'suggestions':suggestions,'chips':chips,'broader':broader.urlencode(),'external':external,'available':Job.objects.filter(active=True).count(),'form':form,'page':page,'query':query.urlencode(),'saved':saved,'feeds':FeedState.objects.filter(Q(key__startswith='greenhouse:')|Q(key__startswith='lever:')|Q(key__startswith='smartrecruiters:')|Q(key__startswith='ashby:')),'total':pager.count,'sources':SOURCES,'reporting_sources':reporting,'failed_sources':failures})
 def job(request,pk):
     item=get_object_or_404(Job,pk=pk)
     match=analyse(item.description,request.user.profile.resume) if request.user.is_authenticated else None
