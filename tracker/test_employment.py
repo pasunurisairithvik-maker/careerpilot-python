@@ -12,6 +12,7 @@ class EmploymentTermsTests(SimpleTestCase):
         self.assertEqual(terms('Analyst', 'Review contracts and tax reports.')['keys'],set())
         self.assertEqual(terms('Intern', 'Part-time internship. Independent contractor.')['keys'],{'internship','part_time','1099'})
         self.assertIn('c2c',terms('Developer','Corp-to-corp contract role.')['keys'])
+        self.assertNotIn('internship',terms('New Graduate Engineer','Previous internship experience is preferred.')['keys'])
         self.assertNotIn('1099',terms('Developer','Form 1098 is required.')['keys'])
 
 class EmploymentFilterTests(TestCase):

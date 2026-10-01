@@ -11,12 +11,12 @@ def terms(title, description):
         'part_time': r'\bpart[- ]time\b',
         'contract': r'\bcontract(?:or)? (?:role|position|job|opportunity|employment)\b|\b(?:role|position|job|employment type)\s*[:–-]?\s*contract\b|\bcontract[- ]to[- ]hire\b',
         'temporary': r'\btemporary (?:role|position|job|employment)\b|\b(?:employment type|job type)\s*:\s*temporary\b',
-        'internship': r'\bintern(?:ship)?\b',
+        'internship': r'\binternship (?:role|position|job|opportunity)\b|\b(?:employment type|job type)\s*:\s*internship\b|\bthis is an? internship\b',
         'w2': r'\bW[- ]?2\b',
         '1099': r'\b1099\b|\bindependent contractor\b',
         'c2c': r'\bC2C\b|\bcorp[- ]to[- ]corp\b',
     }
-    found = {}
+    found = {'internship': (title or '')[:500]} if re.search(r'\bintern(?:ship)?\b', title or '', re.I) else {}
     for line in re.split(r'\n|(?<=[.!?])\s+', text):
         for key, pattern in patterns.items():
             match = re.search(pattern, line, re.I)
